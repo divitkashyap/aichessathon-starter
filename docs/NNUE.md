@@ -14,6 +14,8 @@ rollback champion until trained weights pass parity, speed and paired-game gates
 - The dimensionless head is scaled by 400 to produce search-friendly centipawn values without
   forcing training to grow unnecessarily large output weights.
 - Training uses PyTorch; deployment uses integer NumPy weights and Numba inference.
+- Feature and output parameters use 1024-unit fixed-point scales. Export rejects saturation
+  instead of silently clipping a trained parameter.
 
 At 128 accumulator channels, the quantized feature table is about 5 MiB.  It remains comfortably
 inside the 50 MB uncompressed submission cap while leaving space for code and later additions.

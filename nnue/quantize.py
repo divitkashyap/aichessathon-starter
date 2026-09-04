@@ -12,8 +12,12 @@ import numpy as np
 from nnue.features import INPUT_FEATURES
 from nnue.model import SparseNNUE
 
-FEATURE_SCALE: Final = 256
-WEIGHT_SCALE: Final = 128
+# These scales affect precision, not artifact size or inference cost.  The original
+# 256/128 pair was adequate for an untrained model but lost more than 8 cp after
+# training because errors from every active feature and output channel accumulate.
+# 1024 remains comfortably inside int16 for normally trained normalized weights.
+FEATURE_SCALE: Final = 1024
+WEIGHT_SCALE: Final = 1024
 FORMAT_VERSION: Final = 1
 
 
@@ -28,9 +32,21 @@ class QuantizedNNUE:
     weight_scale: int = WEIGHT_SCALE
 
 
-def _round_clip(value: np.ndarray, scale: int, dtype: np.dtype[np.signedinteger]) -> np.ndarray:
+def _round_checked(
+    value: np.ndarray,
+    scale: int,
+    dtype: np.dtype[np.signedinteger],
+) -> np.ndarray:
+    """Quantize without silently saturating a trained parameter."""
     limits = np.iinfo(dtype)
-    return np.clip(np.rint(value * scale), limits.min, limits.max).astype(dtype)
+    scaled = np.rint(value * scale)
+    if not np.isfinite(scaled).all():
+        raise ValueError("cannot quantize non-finite parameters")
+    if scaled.size and (scaled.min() < limits.min or scaled.max() > limits.max):
+        raise ValueError(
+            f"parameter exceeds {np.dtype(dtype).name} range at scale {scale}"
+        )
+    return scaled.astype(dtype)
 
 
 def quantize(model: SparseNNUE) -> QuantizedNNUE:
@@ -41,9 +57,9 @@ def quantize(model: SparseNNUE) -> QuantizedNNUE:
     output_weight = state["output.weight"].numpy().reshape(-1)
     tempo = state["tempo"].numpy().reshape(-1)[0]
     return QuantizedNNUE(
-        feature=_round_clip(feature, FEATURE_SCALE, np.int16),
-        feature_bias=_round_clip(feature_bias, FEATURE_SCALE, np.int32),
-        output_weight=_round_clip(output_weight, WEIGHT_SCALE, np.int16),
+        feature=_round_checked(feature, FEATURE_SCALE, np.int16),
+        feature_bias=_round_checked(feature_bias, FEATURE_SCALE, np.int32),
+        output_weight=_round_checked(output_weight, WEIGHT_SCALE, np.int16),
         tempo=np.int64(round(float(tempo) * FEATURE_SCALE * WEIGHT_SCALE)),
         output_scale_cp=model.config.output_scale_cp,
     )

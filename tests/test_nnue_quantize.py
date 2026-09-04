@@ -8,7 +8,7 @@ import torch
 
 from nnue.features import encode_board
 from nnue.model import NNUEConfig, SparseNNUE
-from nnue.quantize import quantize
+from nnue.quantize import FEATURE_SCALE, WEIGHT_SCALE, quantize
 from nnue.runtime import evaluate_quantized, evaluate_quantized_reference
 
 
@@ -58,6 +58,27 @@ class NNUEQuantizationTests(unittest.TestCase):
         self.assertEqual(self.weights.feature.dtype, np.int16)
         self.assertEqual(self.weights.feature_bias.dtype, np.int32)
         self.assertEqual(self.weights.output_weight.dtype, np.int16)
+
+    def test_export_scales_preserve_sub_centipawn_precision(self) -> None:
+        self.assertGreaterEqual(FEATURE_SCALE, 1024)
+        self.assertGreaterEqual(WEIGHT_SCALE, 1024)
+        boards = [
+            chess.Board(),
+            chess.Board("r3k2r/pp2qppp/2npbn2/2p5/3NP3/2N1B3/PPP2PPP/R2Q1RK1 b kq - 4 11"),
+        ]
+        for board in boards:
+            encoded = encode_board(board)
+            integer = evaluate_quantized(
+                encoded.white, encoded.black, int(encoded.turn), self.weights
+            )
+            self.assertLessEqual(abs(self._float_evaluation(board) - integer), 1.0)
+
+    def test_quantizer_rejects_saturation(self) -> None:
+        model = SparseNNUE(NNUEConfig(feature_hidden=16)).eval()
+        with torch.no_grad():
+            model.feature.weight[0, 0] = 100.0
+        with self.assertRaisesRegex(ValueError, "exceeds int16 range"):
+            quantize(model)
 
 
 if __name__ == "__main__":
