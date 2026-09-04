@@ -81,3 +81,6 @@ Never spend a slot merely to test a hypothesis that the local harness can answer
   72.9% score (`+15 =5 -4`) against frozen V1 over 24 color-swapped games at 2s+0.1s.
 - Known V2 weakness: all five draws were threefold repetitions. Add history-aware repetition
   scoring and rerun the same suite before promoting another challenger.
+- Platform v2 failed before startup because its local-only wrapper assumed a deeper filesystem.
+  The corrected archive was submitted as v3: valid and active on 4 September, initialized in
+  14.6--20.8 seconds of the 90-second allowance, and won both organiser smoke games by checkmate.
