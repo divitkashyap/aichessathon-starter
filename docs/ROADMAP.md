@@ -115,6 +115,10 @@ Never spend a slot merely to test a hypothesis that the local harness can answer
   White-relative classical score and falsely rejected it. Corrected testing over 20,000 legal
   positions found 0.560 correlation and 86.0% sign agreement outside a one-pawn margin. Keep v2 as
   the trained challenger and require broad parity, speed and paired-game gates before promotion.
+- Incremental NNUE accumulators exactly matched full reconstruction through a 192-ply synthetic
+  make/unmake test and a 256-ply test with the real v2 weights, including captures, en passant,
+  promotions, castling and king-bucket refreshes. Reusing the accumulator made evaluation alone
+  about 3.0 times faster on the local benchmark; search integration remains a separate gate.
 - Rated round 6 drew as Black against Brokefish by threefold repetition with no technical failure.
   Eight of nine sampled game moves matched compiled V4 at fixed depth, strong evidence that V4 was
   the playing build. It defended a rook ending one pawn down and forced the draw while retaining
