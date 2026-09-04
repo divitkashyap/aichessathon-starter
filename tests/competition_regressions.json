@@ -1,0 +1,34 @@
+{
+  "notice": "Own rated games only, not Daily Five. Playing build may be unknown; use these as regression positions, not opponent-implementation evidence.",
+  "positions": [
+    {
+      "id": "round5-avoid-ne4",
+      "round": 5,
+      "fen": "r4rk1/3b1p2/1pnqpn2/p2pN2p/3P2p1/P1PB1N2/1P1Q1PPP/R3R1K1 b - - 1 16",
+      "avoid": ["f6e4"],
+      "reason": "Recorded move allowed the subsequent mating attack. Avoiding it alone does not establish a winning position."
+    },
+    {
+      "id": "round5-find-qg5",
+      "round": 5,
+      "fen": "r4rk1/3b1p2/1pnqp3/p2pN2p/3PB3/P1P2p2/1P1Q1PPP/R3R1K1 w - - 0 18",
+      "best": ["d2g5"],
+      "reason": "Find the mating attack that appeared in the rated game."
+    },
+    {
+      "id": "round12-avoid-bd7",
+      "round": 12,
+      "fen": "r1b3k1/ppp2r2/1b1p3B/3N1p2/q1P5/5P2/PP1Q2PP/4RR1K b - - 4 22",
+      "avoid": ["c8d7"],
+      "reason": "Recorded move allowed Nf6+ and the mating sequence; alternatives are not certified equal or winning."
+    },
+    {
+      "id": "round12-find-nf6",
+      "round": 12,
+      "fen": "r5k1/pppb1r2/1b1p3B/3N1p2/q1P5/5P2/PP1Q2PP/4RR1K w - - 5 23",
+      "best": ["d5f6"],
+      "recorded_mating_line": ["d5f6", "g8h8", "h6g7", "h8g7", "d2g5", "g7h8", "g5h6", "f7h7", "h6h7"],
+      "reason": "Checking continuation missed by v6 depth six but found by check-extension candidate depth four."
+    }
+  ]
+}

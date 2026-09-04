@@ -63,6 +63,16 @@ were approximately 381 versus 343 ms while other tests were running; this is
 not a clean hardware benchmark. It is undergoing a longer-clock comparison
 with unchanged parameters, not being promoted on the tactical test alone.
 
+That longer-clock comparison finished **6 wins, 3 draws, 3 losses (62.5%)**
+against the terminal reference, on the first six validation openings with
+colors swapped at 10000+100 ms. No technical terminations. Records:
+`artifacts/checks-longer-unseen-1`. This improves the evidence at a longer
+clock but does not erase the failed short-clock screen. Full competition-clock
+testing versus exact v6 is still required; the candidate ZIP is
+`candidate-checks-v7.zip`, SHA256
+`976ab1e75c40c6a1e13702bf3b765d93fcdf35832dad560435cd713b010b9c3a`.
+The filename is a candidate label, not a submitted platform version.
+
 ## Other game reviews
 
 Round 13, a draw as White against StockZero, highlights the endgame position
