@@ -46,8 +46,15 @@ a reliable Elo estimate or proof against leaderboard opponents.
 Packaged archive `candidate-lmr-v6.zip`, 49,096 bytes uncompressed, SHA256
 `3738ae751e65a397c410a029f56f782f816407142564cc82527834eec05e8e98`.
 Only `agent.py`, `lmr_core.py`, `lmr_search.py` are shipped; no neural weights
-or offline datasets. Full-clock 120000+500 ms paired test is running against
-the exact v5 archive in `artifacts/lmr-full-clock-1`.
+or offline datasets. Full-clock 120000+500 ms paired test against the exact v5
+archive finished **1 win, 1 draw, 0 losses**, no technical terminations.
+Records: `artifacts/lmr-full-clock-1`. Two games are a clock/reliability check,
+not a precise strength estimate.
+
+After explicit user confirmation of upload and rules acceptance, this exact
+archive was uploaded as platform v6 at 22:22 London on 4 September. Dashboard
+confirmed hash prefix `3738ae751e65`, sixth upload of the day, in smoke testing.
+Do not call it active until the platform confirms validation success.
 
 The inherited quiescence terminal-horizon and history-dependent table concerns
 remain outside this controlled change. Those require separate regression fixes.

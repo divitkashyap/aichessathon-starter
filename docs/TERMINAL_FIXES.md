@@ -22,5 +22,8 @@ overhead. Other local tests were running; this is not a clean hardware benchmark
 The repetition-history/transposition concern remains unresolved. No claim
 that all draw-handling edge cases have been fixed.
 
-Paired-game test versus the frozen LMR archive is separate and recorded in
-`artifacts/lmr-terminal-screen-1`. Do not infer its result before completion.
+Paired-game test versus the frozen LMR archive: **4 wins, 1 draw, 1 loss**
+on 3 paired openings at 1000+50 ms, no technical terminations. Recorded in
+`artifacts/lmr-terminal-screen-1`. The small sample does not establish a
+precise improvement over LMR. An additional 18-game test versus frozen v5
+is running separately in `artifacts/lmr-terminal-validation-1`.
