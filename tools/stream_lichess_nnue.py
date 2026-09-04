@@ -114,7 +114,7 @@ def main() -> None:
     manifest = writer.close(
         {
             "source": "Lichess/chess-position-evaluations",
-            "label_pov": "white",
+            "label_pov": "side_to_move",
             "minimum_depth": arguments.minimum_depth,
             "accepted": accepted,
             "rejected": rejected,
