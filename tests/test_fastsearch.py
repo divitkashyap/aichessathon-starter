@@ -7,7 +7,7 @@ import chess
 import numpy as np
 
 from fastcore import position_from_fen
-from fastsearch import evaluate, search_fixed_depth, search_root
+from fastsearch import evaluate, search_fixed_depth, search_root, search_timed
 
 
 class FastSearchTests(unittest.TestCase):
@@ -47,6 +47,14 @@ class FastSearchTests(unittest.TestCase):
         self.assertLess(elapsed, 0.1)
         np.testing.assert_array_equal(pieces, original_pieces)
         np.testing.assert_array_equal(state, original_state)
+
+    def test_timed_search_returns_a_legal_move_under_low_clock(self) -> None:
+        started = time.perf_counter()
+        result = search_timed(chess.STARTING_FEN, 100)
+        elapsed = time.perf_counter() - started
+        self.assertIn(chess.Move.from_uci(result.move), chess.Board().legal_moves)
+        self.assertGreaterEqual(result.depth, 1)
+        self.assertLess(elapsed, 0.1)
 
 
 if __name__ == "__main__":

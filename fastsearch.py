@@ -312,3 +312,58 @@ def search_fixed_depth(fen: str, depth: int) -> FastSearchResult:
         nodes=nodes,
         elapsed_ms=(time.perf_counter() - started) * 1_000,
     )
+
+
+def _move_budget_ms(board: chess.Board, time_left_ms: int) -> float:
+    remaining = max(1.0, float(time_left_ms))
+    reserve = min(5_000.0, max(150.0, remaining * 0.07))
+    usable = max(1.0, remaining - reserve)
+    if board.fullmove_number < 20:
+        moves_to_go = 34
+    elif board.fullmove_number < 40:
+        moves_to_go = 26
+    else:
+        moves_to_go = 20
+    target = usable / moves_to_go + 325.0
+    budget = min(5_000.0, target, remaining * 0.12)
+    margin = max(10.0, min(100.0, remaining * 0.02))
+    return max(2.0, min(budget, remaining - margin))
+
+
+def search_timed(fen: str, time_left_ms: int) -> FastSearchResult:
+    """Iteratively deepen until the conservative per-move deadline."""
+    source = chess.Board(fen)
+    board, state = position_from_fen(fen)
+    started = time.perf_counter()
+    deadline = started + _move_budget_ms(source, time_left_ms) / 1_000
+    legal = generate_legal_moves(board, state)
+    if len(legal) == 0:
+        raise ValueError("search requested from a terminal position")
+
+    best_move = int(legal[0])
+    best_score = -INFINITY
+    completed_depth = 0
+    total_nodes = 0
+    for depth in range(1, 64):
+        score, move, nodes, completed = search_root(board, state, depth, deadline)
+        total_nodes += nodes
+        if not completed:
+            break
+        best_move = move
+        best_score = score
+        completed_depth = depth
+        if abs(score) >= MATE - 100:
+            break
+    return FastSearchResult(
+        move=move_to_uci(best_move),
+        score=best_score,
+        depth=completed_depth,
+        nodes=total_nodes,
+        elapsed_ms=(time.perf_counter() - started) * 1_000,
+    )
+
+
+def warm_up() -> None:
+    """Spend Numba compilation time during the platform's initialization window."""
+    board, state = position_from_fen(chess.STARTING_FEN)
+    search_root(board, state, 2, math.inf)
