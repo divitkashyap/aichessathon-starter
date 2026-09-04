@@ -71,3 +71,13 @@ Exit gate: no race, clock or state-corruption failures over a long stress run.
 The live dashboard currently permits ten uploads per team per day. Upload one stable champion each day and use
 additional slots only for a candidate with positive local evidence or a platform-specific fix.
 Never spend a slot merely to test a hypothesis that the local harness can answer.
+
+## Measured progress
+
+- V1 classical champion: valid and active on 4 September.
+- Fast-core correctness: exact start-position depth-5 and Kiwipete depth-4 perft;
+  100,000 differential positions matched `python-chess`, including exact make/unmake state.
+- Fast-search V2: 1.26--1.54 million nodes/second at start-position depths 4--6 and a
+  72.9% score (`+15 =5 -4`) against frozen V1 over 24 color-swapped games at 2s+0.1s.
+- Known V2 weakness: all five draws were threefold repetitions. Add history-aware repetition
+  scoring and rerun the same suite before promoting another challenger.
