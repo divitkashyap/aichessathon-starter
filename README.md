@@ -24,6 +24,48 @@ Expected SHA256: `3738ae751e65a397c410a029f56f782f816407142564cc82527834eec05e8e
 Other `challengers/` directories are experiments, not automatically approved upgrades.
 See [NNUE diagnosis](docs/NNUE_DIAGNOSIS.md) before spending more training time.
 
+## Changes, lessons and evidence
+
+Most demonstrated gains so far came from faster, better-directed search and
+paired games against frozen versions of our own agent—not neural training or
+simply beating the starter minimax bot. Scores below count draws as half a win.
+
+| Change | What we learned | Evidence and limits |
+| --- | --- | --- |
+| Compiled move generation and search | More useful calculation fits within the clock. | 100,000 differential positions matched python-chess; compiled candidate scored 72.9% over 24 games against v1. |
+| Search-position cache | Avoid repeating work when move sequences reach the same position. | v4 candidate scored 62.5% over 24 games against v3. |
+| Better move ordering | Finding promising moves first makes the remaining search cheaper. | v5 candidate scored 77.1% over 24 games against **v3**, not v4; the earlier opponent attribution was corrected. |
+| Conservative late-move reductions | Initially search late quiet moves less deeply, then verify promising ones. | v6 scored 9W/5D/4L in a separate 18-game validation against v5; full-clock pair was 1W/1D. |
+| Neural evaluator and guarded variants | Lower aggregate prediction error does not guarantee stronger play. Sparse endgames are a major weakness. | On a second 850-position sample, ordinary-position MAE was 130 cp classical vs 249 cp neural; a bounded blend reached 124 cp but lost its v6 game screen. No neural candidate promoted. |
+| Rejected search/evaluation ideas | Plausible improvements still need to earn promotion. | Persistent memory scored 39.6% over 24 games against v5. Pawn bonuses, guarded null search and neural root ordering also failed to earn promotion in small screens. |
+
+These are local, opponent-specific results, not universal win rates or Elo
+estimates. Small samples are noisy. The public diagnostic samples are disjoint
+from one another, but overlap with the original training set is not certified.
+See the [development record](docs/ROADMAP.md), [neural diagnosis](docs/NNUE_DIAGNOSIS.md)
+and [follow-up screens](docs/FOLLOWUP_SCREENS.md) for caveats and reproducibility.
+
+## How we improve next
+
+1. Review competition losses, verify the playing build where possible, and
+   retain critical positions as regression tests. Our own analysis scores are
+   diagnostic estimates, not an independent chess oracle.
+2. State one concrete hypothesis and change one feature in an isolated candidate.
+3. Pass legality, board-restoration, tactical, clock and packaging checks.
+4. Screen on development openings, then validate on different openings with both
+   colors and multiple frozen opponents. Use longer-clock games before release.
+5. Promote only with supporting evidence; preserve the exact previous archive.
+   Keep failures in the record instead of silently retuning the validation set.
+
+The arena now supports `--suite legacy` (the unchanged original 12 openings)
+and `--suite validation` (12 additional openings). Each match manifest records
+its selected FENs and source/archive hashes. Once used to select a change, a
+validation suite is no longer an untouched final test for further tuning.
+
+Training is a separate experiment: first measure errors on the existing Colab
+validation shards by position type, then choose targeted data/objective changes.
+Do not spend GPU time merely adding epochs to the same misleading average.
+
 ## Upstream starter guide (historical)
 
 The original guide below describes the starter workflow, not the active v6 packaging command.

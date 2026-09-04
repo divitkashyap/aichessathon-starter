@@ -7,7 +7,7 @@ from pathlib import Path
 
 from harness.referee import FAILED_TERMINATIONS, play_match
 from harness.sandbox import local
-from tools.openings import opening_fens
+from tools.openings import DEFAULT_SUITE, opening_fens
 
 
 def main() -> None:
@@ -16,18 +16,18 @@ def main() -> None:
     parser.add_argument("--champion", type=Path, required=True)
     parser.add_argument("--base-ms", type=int, default=2_000)
     parser.add_argument("--increment-ms", type=int, default=100)
+    parser.add_argument("--suite", choices=("legacy", "validation"), default=DEFAULT_SUITE)
     parser.add_argument("--openings", type=int, default=12)
     parser.add_argument("--opening-start", type=int, default=0)
     parser.add_argument("--output", type=Path, help="New directory for reproducible game records")
     arguments = parser.parse_args()
 
+    suite_fens = opening_fens(arguments.suite)
     candidate = arguments.candidate.resolve()
     champion = arguments.champion.resolve()
-    if not 1 <= arguments.openings <= len(opening_fens()):
-        parser.error(f"--openings must be between 1 and {len(opening_fens())}")
-    if arguments.opening_start < 0 or arguments.opening_start + arguments.openings > len(
-        opening_fens()
-    ):
+    if not 1 <= arguments.openings <= len(suite_fens):
+        parser.error(f"--openings must be between 1 and {len(suite_fens)}")
+    if arguments.opening_start < 0 or arguments.opening_start + arguments.openings > len(suite_fens):
         parser.error("opening range is outside the available suite")
     if arguments.output is not None and arguments.output.exists():
         parser.error("refusing to overwrite an existing match directory")
@@ -39,7 +39,7 @@ def main() -> None:
             print(f"{role}_sha256={hashlib.sha256(path.read_bytes()).hexdigest()}", flush=True)
     print(
         f"clock={arguments.base_ms}+{arguments.increment_ms}ms "
-        f"paired_openings={arguments.openings}",
+        f"suite={arguments.suite} paired_openings={arguments.openings}",
         flush=True,
     )
     wins = draws = losses = 0
@@ -51,8 +51,12 @@ def main() -> None:
             champion=str(champion),
             base_ms=arguments.base_ms,
             increment_ms=arguments.increment_ms,
+            suite=arguments.suite,
             opening_start=arguments.opening_start,
             openings=arguments.openings,
+            starting_fens=list(
+                suite_fens[arguments.opening_start : arguments.opening_start + arguments.openings]
+            ),
         )
         # Snapshot source hashes, including directory-based experimental agents.
         for role, path in (("candidate", candidate), ("champion", champion)):
@@ -66,7 +70,7 @@ def main() -> None:
             json.dump(manifest, stream, indent=2)
 
     games: list[tuple[Path, Path, bool, str]] = []
-    for fen in opening_fens()[
+    for fen in suite_fens[
         arguments.opening_start : arguments.opening_start + arguments.openings
     ]:
         games.append((candidate, champion, True, fen))
