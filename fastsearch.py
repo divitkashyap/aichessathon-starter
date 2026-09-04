@@ -19,6 +19,7 @@ from fastcore import (
     CAPTURE,
     EN_PASSANT,
     HALFMOVE,
+    HASH_KEY,
     KING,
     PAWN,
     SIDE,
@@ -35,6 +36,8 @@ MATE: Final = 1_000_000
 INFINITY: Final = 2_000_000
 MAX_QDEPTH: Final = 10
 TIME_CHECK_MASK: Final = 2_047
+MAX_SEARCH_PLY: Final = 128
+MAX_GAME_HISTORY: Final = 600
 
 PIECE_VALUES: Final = np.array([0, 100, 320, 335, 500, 900, 0], dtype=np.int32)
 PHASE_WEIGHTS: Final = np.array([0, 0, 1, 1, 2, 4, 0], dtype=np.int8)
@@ -180,6 +183,30 @@ def _out_of_time(stats: np.ndarray, deadline: float) -> bool:
 
 
 @njit(cache=False)
+def _is_threefold(
+    key: int,
+    halfmove_clock: int,
+    history: np.ndarray,
+    history_count: int,
+    path: np.ndarray,
+    path_count: int,
+) -> bool:
+    """Return whether the current node is the third same-side occurrence."""
+    current_index = history_count + path_count - 1
+    first_index = max(0, current_index - halfmove_clock)
+    matches = 0
+    index = current_index - 2
+    while index >= first_index:
+        previous = history[index] if index < history_count else path[index - history_count]
+        if previous == key:
+            matches += 1
+            if matches >= 2:
+                return True
+        index -= 2
+    return False
+
+
+@njit(cache=False)
 def _quiescence(
     board: np.ndarray,
     state: np.ndarray,
@@ -189,11 +216,24 @@ def _quiescence(
     qdepth: int,
     stats: np.ndarray,
     deadline: float,
+    history: np.ndarray,
+    history_count: int,
+    path: np.ndarray,
+    path_count: int,
 ) -> int:
     stats[0] += 1
     if _out_of_time(stats, deadline):
         return 0
     if state[HALFMOVE] >= 100:
+        return 0
+    if _is_threefold(
+        int(state[HASH_KEY]),
+        int(state[HALFMOVE]),
+        history,
+        history_count,
+        path,
+        path_count,
+    ):
         return 0
 
     in_check = _in_check(board, state)
@@ -216,7 +256,21 @@ def _quiescence(
         if not in_check and not (move & CAPTURE) and not ((move >> 12) & 7):
             continue
         make_move(board, state, move, undo)
-        score = -_quiescence(board, state, -beta, -alpha, ply + 1, qdepth + 1, stats, deadline)
+        path[path_count] = state[HASH_KEY]
+        score = -_quiescence(
+            board,
+            state,
+            -beta,
+            -alpha,
+            ply + 1,
+            qdepth + 1,
+            stats,
+            deadline,
+            history,
+            history_count,
+            path,
+            path_count + 1,
+        )
         unmake_move(board, state, move, undo)
         if stats[1] != 0:
             return 0
@@ -237,14 +291,40 @@ def _negamax(
     ply: int,
     stats: np.ndarray,
     deadline: float,
+    history: np.ndarray,
+    history_count: int,
+    path: np.ndarray,
+    path_count: int,
 ) -> int:
     stats[0] += 1
     if _out_of_time(stats, deadline):
         return 0
     if state[HALFMOVE] >= 100:
         return 0
+    if _is_threefold(
+        int(state[HASH_KEY]),
+        int(state[HALFMOVE]),
+        history,
+        history_count,
+        path,
+        path_count,
+    ):
+        return 0
     if depth <= 0:
-        return _quiescence(board, state, alpha, beta, ply, 0, stats, deadline)
+        return _quiescence(
+            board,
+            state,
+            alpha,
+            beta,
+            ply,
+            0,
+            stats,
+            deadline,
+            history,
+            history_count,
+            path,
+            path_count,
+        )
 
     moves = generate_legal_moves(board, state)
     if len(moves) == 0:
@@ -255,7 +335,21 @@ def _negamax(
     for move_value in moves:
         move = int(move_value)
         make_move(board, state, move, undo)
-        score = -_negamax(board, state, depth - 1, -beta, -alpha, ply + 1, stats, deadline)
+        path[path_count] = state[HASH_KEY]
+        score = -_negamax(
+            board,
+            state,
+            depth - 1,
+            -beta,
+            -alpha,
+            ply + 1,
+            stats,
+            deadline,
+            history,
+            history_count,
+            path,
+            path_count + 1,
+        )
         unmake_move(board, state, move, undo)
         if stats[1] != 0:
             return 0
@@ -269,11 +363,13 @@ def _negamax(
 
 
 @njit(cache=False)
-def search_root(
+def _search_root(
     board: np.ndarray,
     state: np.ndarray,
     depth: int,
     deadline: float,
+    history: np.ndarray,
+    history_count: int,
 ) -> tuple[int, int, int, bool]:
     stats = np.zeros(2, dtype=np.int64)
     moves = generate_legal_moves(board, state)
@@ -284,10 +380,25 @@ def search_root(
     best_score = -INFINITY
     alpha = -INFINITY
     undo = np.empty(UNDO_SIZE, dtype=np.int64)
+    path = np.empty(MAX_SEARCH_PLY, dtype=np.int64)
     for move_value in moves:
         move = int(move_value)
         make_move(board, state, move, undo)
-        score = -_negamax(board, state, depth - 1, -INFINITY, -alpha, 1, stats, deadline)
+        path[0] = state[HASH_KEY]
+        score = -_negamax(
+            board,
+            state,
+            depth - 1,
+            -INFINITY,
+            -alpha,
+            1,
+            stats,
+            deadline,
+            history,
+            history_count,
+            path,
+            1,
+        )
         unmake_move(board, state, move, undo)
         if stats[1] != 0:
             return best_score, best_move, int(stats[0]), False
@@ -297,6 +408,27 @@ def search_root(
         if score > alpha:
             alpha = score
     return best_score, best_move, int(stats[0]), True
+
+
+def _history_array(history: list[int] | tuple[int, ...], root_key: int) -> tuple[np.ndarray, int]:
+    values = list(history[-MAX_GAME_HISTORY:])
+    if not values or values[-1] != root_key:
+        values.append(root_key)
+    values = values[-MAX_GAME_HISTORY:]
+    array = np.zeros(MAX_GAME_HISTORY, dtype=np.int64)
+    array[: len(values)] = values
+    return array, len(values)
+
+
+def search_root(
+    board: np.ndarray,
+    state: np.ndarray,
+    depth: int,
+    deadline: float,
+    history: list[int] | tuple[int, ...] = (),
+) -> tuple[int, int, int, bool]:
+    history_array, history_count = _history_array(history, int(state[HASH_KEY]))
+    return _search_root(board, state, depth, deadline, history_array, history_count)
 
 
 def search_fixed_depth(fen: str, depth: int) -> FastSearchResult:
@@ -330,7 +462,11 @@ def _move_budget_ms(board: chess.Board, time_left_ms: int) -> float:
     return max(2.0, min(budget, remaining - margin))
 
 
-def search_timed(fen: str, time_left_ms: int) -> FastSearchResult:
+def search_timed(
+    fen: str,
+    time_left_ms: int,
+    history: list[int] | tuple[int, ...] = (),
+) -> FastSearchResult:
     """Iteratively deepen until the conservative per-move deadline."""
     source = chess.Board(fen)
     board, state = position_from_fen(fen)
@@ -339,13 +475,16 @@ def search_timed(fen: str, time_left_ms: int) -> FastSearchResult:
     legal = generate_legal_moves(board, state)
     if len(legal) == 0:
         raise ValueError("search requested from a terminal position")
+    history_array, history_count = _history_array(history, int(state[HASH_KEY]))
 
     best_move = int(legal[0])
     best_score = -INFINITY
     completed_depth = 0
     total_nodes = 0
     for depth in range(1, 64):
-        score, move, nodes, completed = search_root(board, state, depth, deadline)
+        score, move, nodes, completed = _search_root(
+            board, state, depth, deadline, history_array, history_count
+        )
         total_nodes += nodes
         if not completed:
             break

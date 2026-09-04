@@ -84,3 +84,6 @@ Never spend a slot merely to test a hypothesis that the local harness can answer
 - Platform v2 failed before startup because its local-only wrapper assumed a deeper filesystem.
   The corrected archive was submitted as v3: valid and active on 4 September, initialized in
   14.6--20.8 seconds of the 90-second allowance, and won both organiser smoke games by checkmate.
+- History-aware repetition challenger: correctly detects third occurrences but scored only
+  52.1% (`+9 =7 -8`) against frozen v3 over 24 paired games. Retained as correctness
+  infrastructure; rejected as a standalone strength promotion.

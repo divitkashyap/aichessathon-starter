@@ -6,7 +6,7 @@ import unittest
 import chess
 import numpy as np
 
-from fastcore import position_from_fen
+from fastcore import HASH_KEY, move_to_uci, position_from_fen
 from fastsearch import evaluate, search_fixed_depth, search_root, search_timed
 
 
@@ -55,6 +55,23 @@ class FastSearchTests(unittest.TestCase):
         self.assertIn(chess.Move.from_uci(result.move), chess.Board().legal_moves)
         self.assertGreaterEqual(result.depth, 1)
         self.assertLess(elapsed, 0.1)
+
+    def test_search_avoids_third_repetition_when_a_win_remains(self) -> None:
+        fen = "7k/8/8/8/8/8/r7/Q6K w - - 0 1"
+        source = chess.Board(fen)
+        repeated = source.copy(stack=False)
+        repeated.push_uci("a1a2")
+        _, root_state = position_from_fen(fen)
+        _, repeated_state = position_from_fen(repeated.fen(en_passant="fen"))
+        repeated_key = int(repeated_state[HASH_KEY])
+        history = [11, repeated_key, 22, repeated_key, int(root_state[HASH_KEY])]
+
+        pieces, state = position_from_fen(fen)
+        _, move, _, completed = search_root(
+            pieces, state, 2, float("inf"), history=history
+        )
+        self.assertTrue(completed)
+        self.assertNotEqual(move_to_uci(move), "a1a2")
 
 
 if __name__ == "__main__":
