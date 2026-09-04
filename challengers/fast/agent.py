@@ -1,13 +1,6 @@
 """Local harness entrypoint for the compiled-search challenger."""
 
-from __future__ import annotations
-
-import sys
-from pathlib import Path
-
 import chess
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from fastsearch import search_timed, warm_up
 

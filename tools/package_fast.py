@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import zipfile
 from pathlib import Path
 
@@ -20,6 +21,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=Path, default=Path("candidate-fast-v2.zip"))
     arguments = parser.parse_args()
+
+    agent_source = MEMBERS[0][0].read_text()
+    ast.parse(agent_source)
+    if "parents[" in agent_source or "sys.path" in agent_source:
+        raise SystemExit("submission agent must not depend on its parent directory layout")
 
     with zipfile.ZipFile(arguments.out, "w", zipfile.ZIP_DEFLATED) as archive:
         for source, destination in MEMBERS:
