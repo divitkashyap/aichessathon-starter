@@ -507,15 +507,21 @@ def generate_legal_moves(board: np.ndarray, state: np.ndarray) -> np.ndarray:
     legal_count = 0
     side = int(state[SIDE])
     undo = np.empty(UNDO_SIZE, dtype=np.int64)
+    king_square = -1
+    for square in range(64):
+        if board[square] == side * KING:
+            king_square = square
+            break
+    if king_square < 0:
+        return legal[:0]
     for index in range(pseudo_count):
         move = int(pseudo[index])
+        source = move & 63
+        target = (move >> 6) & 63
+        moved_king = board[source] == side * KING
         make_move(board, state, move, undo)
-        king_square = -1
-        for square in range(64):
-            if board[square] == side * KING:
-                king_square = square
-                break
-        legal_move = king_square >= 0 and not is_square_attacked(board, king_square, -side)
+        checked_square = target if moved_king else king_square
+        legal_move = not is_square_attacked(board, checked_square, -side)
         unmake_move(board, state, move, undo)
         if legal_move:
             legal[legal_count] = move

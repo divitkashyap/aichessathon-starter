@@ -95,6 +95,11 @@ Never spend a slot merely to test a hypothesis that the local harness can answer
   fixed-depth suite while reducing nodes by 35% at depth 4 (1,090,928 to 705,590) and 43% at
   depth 5 (8,377,767 to 4,795,164). It still requires paired games against frozen v4 before
   promotion.
+- Legal generation now finds the moving side's king once per position rather than once per
+  candidate move. The 12-opening depth-5 benchmark kept the same 4,795,164 nodes and improved
+  median throughput from about 670,000 to 725,000 nodes/second (8%); 100,000 differential
+  positions matched `python-chess`, including 273 castles, 180 en-passant captures and 899
+  promotions.
 - Rated round 5 was lost by checkmate after `16...Ne4 17.Bxe4 gxf3`. Replay matched all Black
   moves with the older Python V1 engine, while compiled V4 rejects `16...Ne4` from depth 4 and
   sees the forced mate after `17...gxf3` at depth 5. This is evidence that the game was probably
