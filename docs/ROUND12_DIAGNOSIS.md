@@ -73,6 +73,11 @@ testing versus exact v6 is still required; the candidate ZIP is
 `976ab1e75c40c6a1e13702bf3b765d93fcdf35832dad560435cd713b010b9c3a`.
 The filename is a candidate label, not a submitted platform version.
 
+The exact check-only ZIP subsequently finished **0 wins, 1 draw, 1 loss**
+against v6 at 120000+500 ms on a color-swapped validation opening. No technical
+terminations. It was not submitted. Records: `artifacts/checks-full-clock-v6-1`.
+The successful tactical regression therefore did not, by itself, earn a release.
+
 ## Other game reviews
 
 Round 13, a draw as White against StockZero, highlights the endgame position
@@ -94,6 +99,24 @@ against python-chess. No neural retraining is involved in these experiments.
 Its initial six-game screen against the terminal reference finished **2 wins,
 3 draws, 1 loss (58.3%)**, no technical terminations. This is preliminary,
 not sufficient standalone evidence for a playing-strength claim.
+
+## Combined check-following and dead-material candidate
+
+`lmr_checks_draws` changes only the check candidate's evaluator to the tested
+dead-material-aware evaluator. It does not include king-shelter bonuses. Three
+combination tests pass; AST comparison confirms the check search is unchanged.
+Its initial match versus the check-only ZIP at 10000+100 ms finished **2 wins,
+2 draws, 2 losses**, no technical terminations. A separate direct comparison
+against frozen v6, validation openings 7–9 with colors swapped at 10000+100 ms,
+finished **3 wins, 2 draws, 1 loss (66.7%)**, no technical terminations.
+Records: `artifacts/checks-draws-screen-1`, `artifacts/checks-draws-direct-v6-1`.
+
+Exact archive `candidate-checks-draws-eval-1.zip`, 52,010 bytes uncompressed,
+SHA256 `2274f766f4151f3e7425d973fc26bc96c83637891e236052a466b3859bf6db92`.
+On 4 September the user explicitly authorized uploading this exact candidate
+and accepting the rules **only if its two full-clock games against v6 finish
+at 50% or better with no technical failures**. That gate is still running.
+The full-clock pair is a reliability/promotion check, not a precise Elo estimate.
 
 ## Timing and submission context
 

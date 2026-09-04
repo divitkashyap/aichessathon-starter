@@ -18,10 +18,11 @@ from challengers.lmr_terminal.lmr_search import MATE, MAX_SEARCH_PLY, search_fix
 SearchFunction = Callable[[str, int], Any]
 
 
-def _clock_seconds(node: chess.pgn.ChildNode, game_number: int, ply: int) -> float:
+def _clock_seconds(node: chess.pgn.ChildNode, game_number: int, ply: int) -> float | None:
     clock = node.clock()
     if clock is None:
-        raise ValueError(f"game {game_number} ply {ply}: missing [%clk] annotation")
+        # Local referee PGNs omit clocks. Missing is unknown, never zero.
+        return None
     return float(clock)
 
 

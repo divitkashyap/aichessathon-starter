@@ -46,6 +46,12 @@ class ReviewPgnTests(unittest.TestCase):
         self.assertEqual(record["proxy_loss"], 50)
         self.assertEqual(calls[1][1], 4)
 
+    def test_absent_clock_is_unknown_not_zero(self) -> None:
+        directory = Path(tempfile.mkdtemp(prefix="review-pgn-no-clock-"))
+        path = self.write_pgn(directory, "1. e4 *\n")
+        report = review_pgn.review_pgn(path, "white", search=Mock(side_effect=[Result("e2e4", 0), Result("e7e5", 0)]))
+        self.assertIsNone(report["games"][0]["moves"][0]["clock_secs"])
+
     def test_illegal_pgn_move_is_rejected(self) -> None:
         pgn = "1. e5 {[%clk 0:10:00]} *\n"
         temporary = tempfile.mkdtemp(prefix="review-pgn-test-")
