@@ -41,6 +41,14 @@ CASTLE: Final = 1 << 17
 DOUBLE_PUSH: Final = 1 << 18
 
 MAX_MOVES: Final = 256
+UNDO_SIZE: Final = 7
+UNDO_CAPTURED: Final = 0
+UNDO_CAPTURE_SQUARE: Final = 1
+UNDO_CASTLING: Final = 2
+UNDO_EP_SQUARE: Final = 3
+UNDO_HALFMOVE: Final = 4
+UNDO_FULLMOVE: Final = 5
+UNDO_MOVED_PIECE: Final = 6
 
 KNIGHT_DELTAS: Final = ((1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1), (-2, 1), (-1, 2))
 KING_DELTAS: Final = ((1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1))
@@ -316,18 +324,33 @@ def _generate_pseudo_legal(board: np.ndarray, state: np.ndarray, moves: np.ndarr
 
 
 @njit(cache=False)
-def _apply_move(board: np.ndarray, state: np.ndarray, move: int) -> None:
+def make_move(
+    board: np.ndarray,
+    state: np.ndarray,
+    move: int,
+    undo: np.ndarray,
+) -> None:
+    """Apply one encoded move in place and fill a fixed-size undo record."""
     source = move & 63
     target = (move >> 6) & 63
     promotion = (move >> 12) & 7
     piece = int(board[source])
     side = int(state[SIDE])
-    captured = int(board[target])
+    capture_square = target - 8 * side if move & EN_PASSANT else target
+    captured = int(board[capture_square])
+
+    undo[UNDO_CAPTURED] = captured
+    undo[UNDO_CAPTURE_SQUARE] = capture_square
+    undo[UNDO_CASTLING] = state[CASTLING]
+    undo[UNDO_EP_SQUARE] = state[EP_SQUARE]
+    undo[UNDO_HALFMOVE] = state[HALFMOVE]
+    undo[UNDO_FULLMOVE] = state[FULLMOVE]
+    undo[UNDO_MOVED_PIECE] = piece
 
     board[source] = EMPTY
     board[target] = side * promotion if promotion else piece
     if move & EN_PASSANT:
-        board[target - 8 * side] = EMPTY
+        board[capture_square] = EMPTY
     if move & CASTLE:
         if target == chess.G1:
             board[chess.F1] = board[chess.H1]
@@ -365,26 +388,85 @@ def _apply_move(board: np.ndarray, state: np.ndarray, move: int) -> None:
 
 
 @njit(cache=False)
+def unmake_move(
+    board: np.ndarray,
+    state: np.ndarray,
+    move: int,
+    undo: np.ndarray,
+) -> None:
+    """Restore the exact board and state that existed before ``make_move``."""
+    source = move & 63
+    target = (move >> 6) & 63
+    side = -int(state[SIDE])
+
+    if move & CASTLE:
+        if target == chess.G1:
+            board[chess.H1] = board[chess.F1]
+            board[chess.F1] = EMPTY
+        elif target == chess.C1:
+            board[chess.A1] = board[chess.D1]
+            board[chess.D1] = EMPTY
+        elif target == chess.G8:
+            board[chess.H8] = board[chess.F8]
+            board[chess.F8] = EMPTY
+        else:
+            board[chess.A8] = board[chess.D8]
+            board[chess.D8] = EMPTY
+
+    board[source] = undo[UNDO_MOVED_PIECE]
+    if move & EN_PASSANT:
+        board[target] = EMPTY
+        board[int(undo[UNDO_CAPTURE_SQUARE])] = undo[UNDO_CAPTURED]
+    else:
+        board[target] = undo[UNDO_CAPTURED]
+
+    state[SIDE] = side
+    state[CASTLING] = undo[UNDO_CASTLING]
+    state[EP_SQUARE] = undo[UNDO_EP_SQUARE]
+    state[HALFMOVE] = undo[UNDO_HALFMOVE]
+    state[FULLMOVE] = undo[UNDO_FULLMOVE]
+
+
+@njit(cache=False)
 def generate_legal_moves(board: np.ndarray, state: np.ndarray) -> np.ndarray:
     pseudo = np.empty(MAX_MOVES, dtype=np.int32)
     pseudo_count = _generate_pseudo_legal(board, state, pseudo)
     legal = np.empty(MAX_MOVES, dtype=np.int32)
     legal_count = 0
     side = int(state[SIDE])
+    undo = np.empty(UNDO_SIZE, dtype=np.int16)
     for index in range(pseudo_count):
-        candidate_board = board.copy()
-        candidate_state = state.copy()
         move = int(pseudo[index])
-        _apply_move(candidate_board, candidate_state, move)
+        make_move(board, state, move, undo)
         king_square = -1
         for square in range(64):
-            if candidate_board[square] == side * KING:
+            if board[square] == side * KING:
                 king_square = square
                 break
-        if king_square >= 0 and not is_square_attacked(candidate_board, king_square, -side):
+        legal_move = king_square >= 0 and not is_square_attacked(board, king_square, -side)
+        unmake_move(board, state, move, undo)
+        if legal_move:
             legal[legal_count] = move
             legal_count += 1
     return legal[:legal_count]
+
+
+@njit(cache=False)
+def perft(board: np.ndarray, state: np.ndarray, depth: int) -> np.int64:
+    """Count legal leaf nodes using the reversible path that search will use."""
+    if depth == 0:
+        return np.int64(1)
+    moves = generate_legal_moves(board, state)
+    if depth == 1:
+        return np.int64(len(moves))
+
+    nodes = np.int64(0)
+    undo = np.empty(UNDO_SIZE, dtype=np.int16)
+    for move in moves:
+        make_move(board, state, int(move), undo)
+        nodes += perft(board, state, depth - 1)
+        unmake_move(board, state, int(move), undo)
+    return nodes
 
 
 def legal_moves_uci(fen: str) -> set[str]:
