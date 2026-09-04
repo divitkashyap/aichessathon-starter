@@ -35,9 +35,19 @@ Initial screen: first 3 openings, both colors, 1000+50 ms.
 **5 wins, 0 draws, 1 loss (83.3%)**, no technical terminations.
 Records: `artifacts/lmr-screen-1` (PGNs, source hashes, result).
 
-Validation underway separately: remaining 9 openings, both colors, 2000+100 ms.
-Records: `artifacts/lmr-validation-1`. Do not treat the initial six games as an
-Elo estimate, a final validation result, or proof against leaderboard opponents.
+Validation: remaining 9 openings, both colors, 2000+100 ms.
+**9 wins, 5 draws, 4 losses (63.9%)**, no technical terminations.
+Records: `artifacts/lmr-validation-1`.
+Combined with screening: **14 wins, 5 draws, 5 losses (68.75%)** over 24 games
+at two clock settings. The separate validation score is more informative than
+the combined score because selection followed the initial screen. Neither is
+a reliable Elo estimate or proof against leaderboard opponents.
+
+Packaged archive `candidate-lmr-v6.zip`, 49,096 bytes uncompressed, SHA256
+`3738ae751e65a397c410a029f56f782f816407142564cc82527834eec05e8e98`.
+Only `agent.py`, `lmr_core.py`, `lmr_search.py` are shipped; no neural weights
+or offline datasets. Full-clock 120000+500 ms paired test is running against
+the exact v5 archive in `artifacts/lmr-full-clock-1`.
 
 The inherited quiescence terminal-horizon and history-dependent table concerns
 remain outside this controlled change. Those require separate regression fixes.
