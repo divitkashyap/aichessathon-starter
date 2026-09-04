@@ -69,9 +69,11 @@ in six short-clock games. Adding the guarded blend to LMR then scored
 **1 win, 2 draws, 3 losses against frozen v6**, at 1000+50 ms. No technical
 terminations. Records: `artifacts/lmr-blend-screen-1`. **Not promoted.**
 
-The next isolated experiment uses the network only to choose the first root
+Another isolated experiment uses the network only to choose the first root
 move investigated, retaining classical evaluation throughout the actual
-search. This is a hypothesis, not an established improvement.
+search. It passed five correctness tests but scored 1 win, 3 draws, 2 losses
+against v6 in six games at 2000+100 ms. It is not promoted either. The static
+error improvement has not translated into a supported playing-strength gain.
 
 ## Validate the actual Colab holdout before further training
 
