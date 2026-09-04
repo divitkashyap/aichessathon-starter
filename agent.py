@@ -1,11 +1,11 @@
-"""The submission entrypoint. The platform imports this file and calls get_move."""
-
-import random
+"""Competition entrypoint exposing the required ``get_move`` function."""
 
 import chess
 
-# Import time runs once per game, inside a 60 second budget, before your clock starts.
-# Load weights and build tables out here, not inside get_move.
+from engine import ChessEngine
+
+# One process serves one game, so search state and transpositions survive between moves.
+ENGINE = ChessEngine()
 
 
 def get_move(fen: str, time_left_ms: int) -> str:
@@ -23,7 +23,25 @@ def get_move(fen: str, time_left_ms: int) -> str:
     """
     board = chess.Board(fen)
 
-    # Everything from here down is yours to replace. baselines/greedy searches one ply,
-    # baselines/minimax searches two. Neither is strong. Reading them is the fastest way
-    # to see the shape of a search, and beating them is the first real milestone.
-    return random.choice(list(board.legal_moves)).uci()
+    legal_moves = list(board.legal_moves)
+    if not legal_moves:
+        # The referee never requests a move from a terminal position, but returning a
+        # protocol-shaped value is safer than crashing if a malformed match does.
+        return "0000"
+
+    fallback = min(legal_moves, key=lambda move: move.uci())
+    try:
+        result = ENGINE.choose_move(board, time_left_ms)
+    except Exception as error:  # A legal move is always better than a crash loss.
+        print(f"search fallback: {type(error).__name__}: {error}")
+        return fallback.uci()
+
+    if result.move not in board.legal_moves:
+        print("search fallback: engine returned an illegal move")
+        return fallback.uci()
+    pv = " ".join(move.uci() for move in result.principal_variation)
+    print(
+        f"depth={result.depth} score={result.score} nodes={result.nodes} "
+        f"time={result.elapsed_ms:.1f}ms pv={pv}"
+    )
+    return result.move.uci()
