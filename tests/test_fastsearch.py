@@ -73,6 +73,17 @@ class FastSearchTests(unittest.TestCase):
         self.assertTrue(completed)
         self.assertNotEqual(move_to_uci(move), "a1a2")
 
+    def test_round_five_horizon_position_avoids_ne4_at_depth_four(self) -> None:
+        fen = "r4rk1/3b1p2/1pnqpn2/p2pN2p/3P2p1/P1PB1N2/1P1Q1PPP/R3R1K1 b - - 1 16"
+        result = search_fixed_depth(fen, 4)
+        self.assertNotEqual(result.move, "f6e4")
+
+    def test_round_five_forced_mate_is_visible_at_depth_five(self) -> None:
+        fen = "r4rk1/3b1p2/1pnqp3/p2pN2p/3PB3/P1P2p2/1P1Q1PPP/R3R1K1 w - - 0 18"
+        result = search_fixed_depth(fen, 5)
+        self.assertEqual(result.move, "d2g5")
+        self.assertGreaterEqual(result.score, 999_900)
+
 
 if __name__ == "__main__":
     unittest.main()

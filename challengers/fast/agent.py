@@ -16,6 +16,8 @@ except ModuleNotFoundError:
     from fastsearch import search_timed, warm_up
 
 warm_up()
+BUILD_ID = "einsteinanium-fast-v4-tt"
+print(f"build={BUILD_ID}")
 GAME_HISTORY: list[int] = []
 
 
