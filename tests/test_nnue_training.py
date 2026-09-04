@@ -10,7 +10,7 @@ from tools.train_nnue import _tensor_batch
 
 
 class NNUETrainingTests(unittest.TestCase):
-    def test_lichess_targets_remain_side_to_move_relative(self) -> None:
+    def test_white_relative_targets_are_oriented_to_side_to_move(self) -> None:
         batch = ShardBatch(
             white=np.zeros((2, 30), dtype=np.int32),
             black=np.zeros((2, 30), dtype=np.int32),
@@ -21,7 +21,7 @@ class NNUETrainingTests(unittest.TestCase):
         _, _, turn, target = _tensor_batch(batch, torch.device("cpu"))
 
         torch.testing.assert_close(turn, torch.tensor([1, -1], dtype=torch.int8))
-        torch.testing.assert_close(target, torch.tensor([125.0, 250.0]))
+        torch.testing.assert_close(target, torch.tensor([125.0, -250.0]))
 
 
 if __name__ == "__main__":

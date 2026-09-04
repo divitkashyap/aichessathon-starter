@@ -12,19 +12,20 @@ import torch
 from torch import Tensor
 from torch.nn import functional as functional
 
+from nnue.features import white_cp_to_side_to_move
 from nnue.model import NNUEConfig, SparseNNUE, save_checkpoint
 from nnue.shards import ShardBatch, batches, load_shard, shard_paths
 
 
 def _tensor_batch(batch: ShardBatch, device: torch.device) -> tuple[Tensor, ...]:
-    # Lichess cloud-evaluation scores use the FEN's side-to-move perspective,
-    # which is also the perspective returned by SparseNNUE.  Flipping Black's
-    # rows here would invert half the training set.
+    # Lichess cloud-evaluation scores use White's perspective, while SparseNNUE
+    # returns the side-to-move perspective required by negamax search.
+    targets = white_cp_to_side_to_move(batch.target_cp, batch.turn)
     return (
         torch.from_numpy(batch.white).to(device),
         torch.from_numpy(batch.black).to(device),
         torch.from_numpy(batch.turn).to(device),
-        torch.from_numpy(batch.target_cp).to(device),
+        torch.from_numpy(targets).to(device),
     )
 
 

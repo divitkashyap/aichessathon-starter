@@ -110,11 +110,10 @@ Never spend a slot merely to test a hypothesis that the local harness can answer
   export. It remains an untrained challenger until Colab training, parity, speed and paired-game
   gates pass.
 - NNUE v2 trained for six epochs on two million positions and exported with 1.87 cp parity on the
-  export fixtures, but failed evaluation sanity: over 20,000 legal positions it had -0.008
-  correlation with the classical evaluator and only 49.6% sign agreement outside near-equal
-  positions. Root cause was treating already side-to-move-relative Lichess scores as White-relative
-  and inverting every Black-to-move target. Reject v2; reuse its raw shards with the corrected
-  trainer for v3.
+  export fixtures. An initial sanity check compared its side-to-move output against a mistakenly
+  White-relative classical score and falsely rejected it. Corrected testing over 20,000 legal
+  positions found 0.560 correlation and 86.0% sign agreement outside a one-pawn margin. Keep v2 as
+  the trained challenger and require broad parity, speed and paired-game gates before promotion.
 - Rated round 6 drew as Black against Brokefish by threefold repetition with no technical failure.
   Eight of nine sampled game moves matched compiled V4 at fixed depth, strong evidence that V4 was
   the playing build. It defended a rook ending one pawn down and forced the draw while retaining

@@ -44,9 +44,8 @@ python -m tools.export_nnue \
 The Lichess source is de-normalized: the same FEN can appear for multiple principal variations and
 search depths.  The builder deliberately keeps the first occurrence, which is the source's
 highest-priority evaluation, and deduplicates by the four position-defining FEN fields.  Its
-centipawn and mate labels are already from the FEN's side-to-move perspective, matching the model
-output directly.  The original `nnue-v1/data` manifest incorrectly called these labels White POV;
-the encoded scores themselves are unchanged and can be reused by the corrected trainer.
+centipawn and mate labels use White's perspective and are converted to the side-to-move perspective
+during training. This is required because the model output feeds a negamax search.
 
 ## Promotion gate
 
