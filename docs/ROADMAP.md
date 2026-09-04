@@ -100,3 +100,7 @@ Never spend a slot merely to test a hypothesis that the local harness can answer
   shared 128-wide accumulators, antisymmetric direct head, deterministic Lichess shards and integer
   export. It remains an untrained challenger until Colab training, parity, speed and paired-game
   gates pass.
+- Rated round 6 drew as Black against Brokefish by threefold repetition with no technical failure.
+  Eight of nine sampled game moves matched compiled V4 at fixed depth, strong evidence that V4 was
+  the playing build. It defended a rook ending one pawn down and forced the draw while retaining
+  more than 21 seconds; keep the game for future evaluator and repetition-policy tests.
