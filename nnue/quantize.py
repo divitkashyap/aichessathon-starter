@@ -15,9 +15,10 @@ from nnue.model import SparseNNUE
 # These scales affect precision, not artifact size or inference cost.  The original
 # 256/128 pair was adequate for an untrained model but lost more than 8 cp after
 # training because errors from every active feature and output channel accumulate.
-# 1024 remains comfortably inside int16 for normally trained normalized weights.
-FEATURE_SCALE: Final = 1024
-WEIGHT_SCALE: Final = 1024
+# 4096 remains comfortably inside int16 for the observed trained ranges while
+# keeping broad-position parity tighter than the small export fixture alone.
+FEATURE_SCALE: Final = 4096
+WEIGHT_SCALE: Final = 4096
 FORMAT_VERSION: Final = 1
 
 

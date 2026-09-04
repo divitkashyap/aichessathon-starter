@@ -60,8 +60,8 @@ class NNUEQuantizationTests(unittest.TestCase):
         self.assertEqual(self.weights.output_weight.dtype, np.int16)
 
     def test_export_scales_preserve_sub_centipawn_precision(self) -> None:
-        self.assertGreaterEqual(FEATURE_SCALE, 1024)
-        self.assertGreaterEqual(WEIGHT_SCALE, 1024)
+        self.assertGreaterEqual(FEATURE_SCALE, 4096)
+        self.assertGreaterEqual(WEIGHT_SCALE, 4096)
         boards = [
             chess.Board(),
             chess.Board("r3k2r/pp2qppp/2npbn2/2p5/3NP3/2N1B3/PPP2PPP/R2Q1RK1 b kq - 4 11"),
