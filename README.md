@@ -1,26 +1,34 @@
 # Hallucinated Gambits — Einsteinanium
 
-## Current competition agent: v6
+## Current competition agent: v7
 
 Platform-validated on 4 September 2026. The active source is
-`challengers/lmr/`, **not the older root `agent.py` or `make zip` target**.
+`challengers/lmr_checks_draws/`, **not the older root `agent.py` or `make zip` target**.
 This is our own Numba search with classical evaluation and conservative
-late-move reductions; it ships no neural weights or third-party engine.
+late-move reductions, bounded check extensions, terminal-position fixes and
+dead-material recognition; it ships no neural weights or third-party engine.
+In plain terms, it follows forcing checks further and avoids assigning a
+winning score to clearly drawn material endings.
 
-- Against frozen v5: 14 wins, 5 draws, 5 losses over 24 short-clock games.
-- Separate full competition-clock pair: 1 win, 1 draw, no technical failures.
-- Platform initialization: 24.3 seconds in both validation smoke games.
-- [Release manifest](releases/v6.json), [experiment evidence](docs/LMR_EXPERIMENT.md).
+- Against frozen v6: 3 wins, 2 draws, 1 loss at 10 seconds + 0.1 second/move.
+- Separate full competition-clock pair: 2 wins, no technical failures.
+- Platform initialization: 25.8 and 25.7 seconds, within the 90-second budget.
+- Active status verified at 23:55 London on 4 September; 7 of 10 uploads used.
+- [Release manifest](releases/v7.json), [experiment evidence](docs/ROUND12_DIAGNOSIS.md).
+
+These are small local samples against one opponent, not a proven Elo gain.
+V6's exact archive and [release record](releases/v6.json) remain preserved;
+its earlier evidence is in the [LMR experiment](docs/LMR_EXPERIMENT.md).
 
 Rebuild the exact active archive without overwriting the original:
 
 ```sh
 .venv/bin/python -m tools.package_challenger \
-  --source challengers/lmr --out candidate-lmr-v6-rebuilt.zip \
+  --source challengers/lmr_checks_draws --out candidate-v7-rebuilt.zip \
   --files agent.py lmr_core.py lmr_search.py
 ```
 
-Expected SHA256: `3738ae751e65a397c410a029f56f782f816407142564cc82527834eec05e8e98`.
+Expected SHA256: `2274f766f4151f3e7425d973fc26bc96c83637891e236052a466b3859bf6db92`.
 Other `challengers/` directories are experiments, not automatically approved upgrades.
 See [NNUE diagnosis](docs/NNUE_DIAGNOSIS.md) before spending more training time.
 
@@ -36,6 +44,8 @@ simply beating the starter minimax bot. Scores below count draws as half a win.
 | Search-position cache | Avoid repeating work when move sequences reach the same position. | v4 candidate scored 62.5% over 24 games against v3. |
 | Better move ordering | Finding promising moves first makes the remaining search cheaper. | v5 candidate scored 77.1% over 24 games against **v3**, not v4; the earlier opponent attribution was corrected. |
 | Conservative late-move reductions | Initially search late quiet moves less deeply, then verify promising ones. | v6 scored 9W/5D/4L in a separate 18-game validation against v5; full-clock pair was 1W/1D. |
+| Follow checks further; recognize dead material | A real rated loss exposed a forced mate our search missed. The combined candidate finds it at depth four; simple drawn endings now evaluate to zero. | v7 scored 3W/2D/1L directly against v6, then 2W at the full clock. Check-only failed its separate full-clock pair (0W/1D/1L); tactical success alone was not enough. |
+| King pawn-cover penalty, not promoted | A sensible positional rule can look promising against one reference and fail against the actual champion. | 9W/8D/7L against the terminal-fix reference, but 4W/3D/5L directly against v6 at a longer clock; full-clock pair split 1W/1L. |
 | Neural evaluator and guarded variants | Lower aggregate prediction error does not guarantee stronger play. Sparse endgames are a major weakness. | On a second 850-position sample, ordinary-position MAE was 130 cp classical vs 249 cp neural; a bounded blend reached 124 cp but lost its v6 game screen. No neural candidate promoted. |
 | Rejected search/evaluation ideas | Plausible improvements still need to earn promotion. | Persistent memory scored 39.6% over 24 games against v5. Pawn bonuses, guarded null search and neural root ordering also failed to earn promotion in small screens. |
 
@@ -66,9 +76,23 @@ Training is a separate experiment: first measure errors on the existing Colab
 validation shards by position type, then choose targeted data/objective changes.
 Do not spend GPU time merely adding epochs to the same misleading average.
 
+## Frozen qualifier rules: organizer update, 4 September
+
+The organizer email confirms these rules apply from 5 September at 08:00:
+90-second startup allowance, ten uploads per team per day, and process
+suspension while the opponent thinks. The next rated round shown after v7's
+validation is 5 September at 08:00 London. Spare uploads do not create extra
+rated rounds; keep the best validated agent active rather than using slots
+for their own sake. The daily reset timezone was not specified in the email.
+
+Hourly rated rounds continue until uploads close at 11:00 on 11 September.
+The final Swiss that afternoon decides the fifty London seats; today's ladder
+rank is feedback, not confirmation of qualification. See the
+[official rules](https://aichessathon.com/docs/rules.md).
+
 ## Upstream starter guide (historical)
 
-The original guide below describes the starter workflow, not the active v6 packaging command.
+The original guide below describes the starter workflow, not the active v7 packaging command.
 
 Fork this to build an agent for [AI Chessathon](https://aichessathon.com). It gives you a working
 submission, baselines to beat, and a local harness that speaks the same protocol and enforces the

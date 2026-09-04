@@ -1,0 +1,31 @@
+{
+  "platform_version": 7,
+  "platform_status": "valid_active",
+  "validated_at_utc": "2026-09-04T22:55:04Z",
+  "platform_init_seconds": [25.8, 25.7],
+  "submitted_at_london": "2026-09-04T23:52:00+01:00",
+  "submission_time_precision": "minute",
+  "source_commit": "7971fe7",
+  "source_directory": "challengers/lmr_checks_draws",
+  "members": ["agent.py", "lmr_core.py", "lmr_search.py"],
+  "archive": "candidate-checks-draws-eval-1.zip",
+  "sha256": "2274f766f4151f3e7425d973fc26bc96c83637891e236052a466b3859bf6db92",
+  "uncompressed_bytes": 52010,
+  "model_weights": false,
+  "changes_from_v6": ["terminal-position handling", "bounded check extensions", "dead-material evaluation"],
+  "opponent_v6_sha256": "3738ae751e65a397c410a029f56f782f816407142564cc82527834eec05e8e98",
+  "direct_validation": {
+    "wins": 3, "draws": 2, "losses": 1, "technical_failures": 0,
+    "base_ms": 10000, "increment_ms": 100,
+    "suite": "validation", "opening_start": 6, "paired_openings": 3,
+    "artifacts": "artifacts/checks-draws-direct-v6-1"
+  },
+  "full_clock_check": {
+    "wins": 2, "draws": 0, "losses": 0, "technical_failures": 0,
+    "base_ms": 120000, "increment_ms": 500,
+    "suite": "validation", "opening_start": 10, "paired_openings": 1,
+    "artifacts": "artifacts/checks-draws-full-clock-v6-1"
+  },
+  "approval": "User explicitly approved this exact ZIP and rules acceptance conditional on at least 50% in the full-clock pair with no technical failures; condition passed.",
+  "evidence_limit": "Small local samples against one frozen opponent; no Elo or leaderboard-strength estimate."
+}

@@ -115,8 +115,22 @@ Exact archive `candidate-checks-draws-eval-1.zip`, 52,010 bytes uncompressed,
 SHA256 `2274f766f4151f3e7425d973fc26bc96c83637891e236052a466b3859bf6db92`.
 On 4 September the user explicitly authorized uploading this exact candidate
 and accepting the rules **only if its two full-clock games against v6 finish
-at 50% or better with no technical failures**. That gate is still running.
+at 50% or better with no technical failures**. That gate finished **2 wins,
+0 draws, 0 losses**, both by checkmate, with no technical failures. The pair
+used validation opening 11 with colors swapped at 120000+500 ms; records:
+`artifacts/checks-draws-full-clock-v6-1`. This satisfied the user's condition.
+The exact archive was uploaded as platform v7 at 23:52 London on 4 September;
+the dashboard acknowledged its SHA prefix. At 23:55 London it was **valid and
+active**, with validation-log startup times of **25.8 and 25.7 seconds** within
+the 90-second budget. Both smoke games ended by adjudication, with the expected
+`einsteinanium-lmr-checks-draws-challenger` build identifier. Validation completed
+at 22:55:04 UTC. Release metadata is preserved in `releases/v7.json`.
 The full-clock pair is a reliability/promotion check, not a precise Elo estimate.
+
+The shelter-only candidate also completed its direct v6 checks: **1 win and
+1 loss** at the full clock, then **4 wins, 3 draws, 5 losses (45.8%)** over
+12 games at 10000+100 ms. No technical failures. It was not promoted. Records:
+`artifacts/shelter-full-clock-v6-1`, `artifacts/shelter-direct-v6-1`.
 
 ## Timing and submission context
 
@@ -124,3 +138,11 @@ At approximately 23:07 London on 4 September, the dashboard showed v6 active,
 6 of 10 uploads used, rating 1498 and rank 126 of 245 teams. Next rated round:
 5 September at 08:00. Multiple uploads tonight therefore would not produce
 multiple new rated games before midnight; local tests are the feedback loop.
+
+The organizer email supplied by the user confirms that the rules are frozen
+for the remaining qualifier, effective 5 September's first round at 08:00:
+90-second initialization, ten uploads per team per day, and process suspension
+during the opponent's turn. Hourly rounds continue until uploads close at
+11:00 on 11 September; the afternoon final Swiss decides fifty London seats.
+The email does not specify the daily upload reset timezone. After v7's upload,
+the dashboard showed 7 of 10 used. Spare uploads are not extra rated games.
