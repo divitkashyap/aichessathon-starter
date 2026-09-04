@@ -18,10 +18,10 @@ from fastsearch import evaluate
 from tools.stream_lichess_nnue import _score
 
 
-def sample_rows(pages):
+def sample_rows(pages, offset_start=50_000_000):
     selected = {}
     for index in range(pages):
-        offset = 50_000_000 + index * 23_000_000
+        offset = offset_start + index * 23_000_000
         query = urllib.parse.urlencode(
             dict(
                 dataset="Lichess/chess-position-evaluations",
@@ -93,6 +93,8 @@ def metrics(rows):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pages", type=int, default=20)
+    parser.add_argument("--offset-start", type=int, default=50_000_000)
+    parser.add_argument("--exclude", type=Path, help="Exclude positions from a prior diagnostic")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--input", type=Path, help="Reuse raw_rows from a prior audit without network"
@@ -100,12 +102,18 @@ def main():
     args = parser.parse_args()
     if not 1 <= args.pages <= 35:
         parser.error("pages must be between 1 and 35")
+    if args.offset_start < 0 or args.offset_start + (args.pages - 1) * 23_000_000 > 950_000_000:
+        parser.error("requested offset range exceeds this diagnostic's bounded dataset window")
     if args.output.exists():
         parser.error("refusing to replace existing report")
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "challengers/nnue_v3"))
     import nnue_search as neural
 
-    raw = json.loads(args.input.read_text())["raw_rows"] if args.input else sample_rows(args.pages)
+    raw = (json.loads(args.input.read_text())["raw_rows"] if args.input
+           else sample_rows(args.pages, args.offset_start))
+    if args.exclude:
+        excluded = {row["fen"] for row in json.loads(args.exclude.read_text())["raw_rows"]}
+        raw = [row for row in raw if row["fen"] not in excluded]
     rows = []
     for item in raw:
         board = chess.Board(item["fen"] + " 0 1")
@@ -117,7 +125,8 @@ def main():
         score = int(neural.evaluate_nnue(state, white, black))
         target = float(_score(item)) * (1 if board.turn else -1)
         pieces = len(board.piece_map())
-        blend = classical + max(-200, min(200, score - classical)) // 8
+        total = 8 * classical + max(-200, min(200, score - classical))
+        blend = (1 if total >= 0 else -1) * ((abs(total) + 4) // 8)
         rows.append(
             dict(
                 fen=item["fen"],
@@ -137,6 +146,8 @@ def main():
     report = dict(
         source="https://huggingface.co/datasets/Lichess/chess-position-evaluations",
         training_overlap="unknown",
+        excluded_report=str(args.exclude) if args.exclude else None,
+        blend_rounding="nearest_symmetric",
         raw_rows=raw,
         positions=rows,
         metrics=summary,

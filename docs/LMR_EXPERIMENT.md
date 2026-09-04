@@ -53,8 +53,10 @@ not a precise strength estimate.
 
 After explicit user confirmation of upload and rules acceptance, this exact
 archive was uploaded as platform v6 at 22:22 London on 4 September. Dashboard
-confirmed hash prefix `3738ae751e65`, sixth upload of the day, in smoke testing.
-Do not call it active until the platform confirms validation success.
+confirmed hash prefix `3738ae751e65`, sixth upload of the day. Platform
+validation finished at 21:24:30 UTC: **valid and active**. Both initialization
+times were 24.3 seconds of the 90-second allowance; smoke outcomes were White
+by adjudication and Black by checkmate. A round already in play retained v5.
 
 The inherited quiescence terminal-horizon and history-dependent table concerns
 remain outside this controlled change. Those require separate regression fixes.

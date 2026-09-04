@@ -1,4 +1,32 @@
-# AI Chessathon starter
+# Hallucinated Gambits — Einsteinanium
+
+## Current competition agent: v6
+
+Platform-validated on 4 September 2026. The active source is
+`challengers/lmr/`, **not the older root `agent.py` or `make zip` target**.
+This is our own Numba search with classical evaluation and conservative
+late-move reductions; it ships no neural weights or third-party engine.
+
+- Against frozen v5: 14 wins, 5 draws, 5 losses over 24 short-clock games.
+- Separate full competition-clock pair: 1 win, 1 draw, no technical failures.
+- Platform initialization: 24.3 seconds in both validation smoke games.
+- [Release manifest](releases/v6.json), [experiment evidence](docs/LMR_EXPERIMENT.md).
+
+Rebuild the exact active archive without overwriting the original:
+
+```sh
+.venv/bin/python -m tools.package_challenger \
+  --source challengers/lmr --out candidate-lmr-v6-rebuilt.zip \
+  --files agent.py lmr_core.py lmr_search.py
+```
+
+Expected SHA256: `3738ae751e65a397c410a029f56f782f816407142564cc82527834eec05e8e98`.
+Other `challengers/` directories are experiments, not automatically approved upgrades.
+See [NNUE diagnosis](docs/NNUE_DIAGNOSIS.md) before spending more training time.
+
+## Upstream starter guide (historical)
+
+The original guide below describes the starter workflow, not the active v6 packaging command.
 
 Fork this to build an agent for [AI Chessathon](https://aichessathon.com). It gives you a working
 submission, baselines to beat, and a local harness that speaks the same protocol and enforces the

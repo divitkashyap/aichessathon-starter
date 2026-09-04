@@ -46,7 +46,32 @@ No promotion. Formatting-only cleanup followed this screen.
 
 The bounded correction reduced ordinary-position MAE in this diagnostic
 sample by about 5 cp. That small gain may not compensate for slower search.
-Do not promote without games against the exact frozen v5 archive.
+Do not promote without games against the exact frozen active-agent archive.
+
+## Independent sample and follow-up screens
+
+A second sample starts at row 500,000,000 and uses 20 pages spaced by
+23,000,000 rows. Explicitly excluded all FENs in the original report. It
+retains 850 positions, with no position overlap with the first sample;
+overlap with the original training set remains unknown. Gate, weight and cap
+were held fixed. The audit now uses the runtime's symmetric rounding.
+
+| Ordinary subset | Positions | Classical MAE | Neural MAE | Guarded blend MAE |
+| --- | ---: | ---: | ---: | ---: |
+| All | 592 | 129.75 cp | 248.72 cp | 123.79 cp |
+| 17+ pieces | 492 | 121.99 cp | 123.15 cp | 114.82 cp |
+| At most 8 pieces | 21 | 334.10 cp | 2042.19 cp | 334.10 cp |
+
+Report: `artifacts/nnue-audit-v3-independent-20260904.json`. These static
+results replicate a small bounded benefit, not an improvement in playing
+strength. A phase-switch variant scored 2 wins, 3 draws, 1 loss against v5
+in six short-clock games. Adding the guarded blend to LMR then scored
+**1 win, 2 draws, 3 losses against frozen v6**, at 1000+50 ms. No technical
+terminations. Records: `artifacts/lmr-blend-screen-1`. **Not promoted.**
+
+The next isolated experiment uses the network only to choose the first root
+move investigated, retaining classical evaluation throughout the actual
+search. This is a hypothesis, not an established improvement.
 
 ## Validate the actual Colab holdout before further training
 

@@ -1,0 +1,17 @@
+{
+  "platform_version": 6,
+  "platform_status": "valid_active",
+  "validated_at_utc": "2026-09-04T21:24:30Z",
+  "source_commit": "b5ef24c",
+  "source_directory": "challengers/lmr",
+  "members": ["agent.py", "lmr_core.py", "lmr_search.py"],
+  "archive": "candidate-lmr-v6.zip",
+  "sha256": "3738ae751e65a397c410a029f56f782f816407142564cc82527834eec05e8e98",
+  "uncompressed_bytes": 49096,
+  "model_weights": false,
+  "opponent_v5_sha256": "9c61dee88ad864a7818a65fb3e7c8dd09e2ba7c6fd3294e80a63b318cc00d22c",
+  "screen": {"wins": 5, "draws": 0, "losses": 1, "base_ms": 1000, "increment_ms": 50},
+  "separate_validation": {"wins": 9, "draws": 5, "losses": 4, "base_ms": 2000, "increment_ms": 100},
+  "full_clock_check": {"wins": 1, "draws": 1, "losses": 0, "base_ms": 120000, "increment_ms": 500},
+  "platform_init_seconds": [24.3, 24.3]
+}

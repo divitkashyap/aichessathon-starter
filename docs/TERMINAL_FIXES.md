@@ -26,4 +26,8 @@ Paired-game test versus the frozen LMR archive: **4 wins, 1 draw, 1 loss**
 on 3 paired openings at 1000+50 ms, no technical terminations. Recorded in
 `artifacts/lmr-terminal-screen-1`. The small sample does not establish a
 precise improvement over LMR. An additional 18-game test versus frozen v5
-is running separately in `artifacts/lmr-terminal-validation-1`.
+finished **9 wins, 4 draws, 5 losses (61.1%)**, no technical terminations,
+in `artifacts/lmr-terminal-validation-1`. LMR without these fixes scored
+63.9% on that same validation suite in a separate run. These small samples
+do not distinguish the variants reliably. Keep the fixes available for a
+future release; the current approved v6 upload remains unchanged.
