@@ -91,6 +91,10 @@ Never spend a slot merely to test a hypothesis that the local harness can answer
   17% at depth 5 and 36% at depth 6, then scored 62.5% (`+9 =12 -3`) against frozen v3
   over 24 paired games with zero technical failures. Submitted as v4; valid and active on
   4 September after initializing in 28.8--29.8 seconds and passing both platform smoke games.
+- Principal-variation search challenger preserved every move and score over the 12-opening
+  fixed-depth suite while reducing nodes by 35% at depth 4 (1,090,928 to 705,590) and 43% at
+  depth 5 (8,377,767 to 4,795,164). It still requires paired games against frozen v4 before
+  promotion.
 - Rated round 5 was lost by checkmate after `16...Ne4 17.Bxe4 gxf3`. Replay matched all Black
   moves with the older Python V1 engine, while compiled V4 rejects `16...Ne4` from depth 4 and
   sees the forced mate after `17...gxf3` at depth 5. This is evidence that the game was probably

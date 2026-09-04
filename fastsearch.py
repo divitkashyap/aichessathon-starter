@@ -399,29 +399,73 @@ def _negamax(
     best_score = -INFINITY
     best_move = int(moves[0])
     undo = np.empty(UNDO_SIZE, dtype=np.int64)
-    for move_value in moves:
-        move = int(move_value)
+    for move_index in range(len(moves)):
+        move = int(moves[move_index])
         make_move(board, state, move, undo)
         path[path_count] = state[HASH_KEY]
-        score = -_negamax(
-            board,
-            state,
-            depth - 1,
-            -beta,
-            -alpha,
-            ply + 1,
-            stats,
-            deadline,
-            history,
-            history_count,
-            path,
-            path_count + 1,
-            tt_keys,
-            tt_scores,
-            tt_moves,
-            tt_depths,
-            tt_bounds,
-        )
+        if move_index == 0:
+            score = -_negamax(
+                board,
+                state,
+                depth - 1,
+                -beta,
+                -alpha,
+                ply + 1,
+                stats,
+                deadline,
+                history,
+                history_count,
+                path,
+                path_count + 1,
+                tt_keys,
+                tt_scores,
+                tt_moves,
+                tt_depths,
+                tt_bounds,
+            )
+        else:
+            # Principal-variation search: later moves first prove they cannot
+            # beat alpha using a one-point window. Only a surprising move pays
+            # for a full re-search.
+            score = -_negamax(
+                board,
+                state,
+                depth - 1,
+                -alpha - 1,
+                -alpha,
+                ply + 1,
+                stats,
+                deadline,
+                history,
+                history_count,
+                path,
+                path_count + 1,
+                tt_keys,
+                tt_scores,
+                tt_moves,
+                tt_depths,
+                tt_bounds,
+            )
+            if stats[1] == 0 and alpha < score < beta:
+                score = -_negamax(
+                    board,
+                    state,
+                    depth - 1,
+                    -beta,
+                    -alpha,
+                    ply + 1,
+                    stats,
+                    deadline,
+                    history,
+                    history_count,
+                    path,
+                    path_count + 1,
+                    tt_keys,
+                    tt_scores,
+                    tt_moves,
+                    tt_depths,
+                    tt_bounds,
+                )
         unmake_move(board, state, move, undo)
         if stats[1] != 0:
             return 0
@@ -475,29 +519,70 @@ def _search_root(
     alpha = -INFINITY
     undo = np.empty(UNDO_SIZE, dtype=np.int64)
     path = np.empty(MAX_SEARCH_PLY, dtype=np.int64)
-    for move_value in moves:
-        move = int(move_value)
+    for move_index in range(len(moves)):
+        move = int(moves[move_index])
         make_move(board, state, move, undo)
         path[0] = state[HASH_KEY]
-        score = -_negamax(
-            board,
-            state,
-            depth - 1,
-            -INFINITY,
-            -alpha,
-            1,
-            stats,
-            deadline,
-            history,
-            history_count,
-            path,
-            1,
-            tt_keys,
-            tt_scores,
-            tt_moves,
-            tt_depths,
-            tt_bounds,
-        )
+        if move_index == 0:
+            score = -_negamax(
+                board,
+                state,
+                depth - 1,
+                -INFINITY,
+                -alpha,
+                1,
+                stats,
+                deadline,
+                history,
+                history_count,
+                path,
+                1,
+                tt_keys,
+                tt_scores,
+                tt_moves,
+                tt_depths,
+                tt_bounds,
+            )
+        else:
+            score = -_negamax(
+                board,
+                state,
+                depth - 1,
+                -alpha - 1,
+                -alpha,
+                1,
+                stats,
+                deadline,
+                history,
+                history_count,
+                path,
+                1,
+                tt_keys,
+                tt_scores,
+                tt_moves,
+                tt_depths,
+                tt_bounds,
+            )
+            if stats[1] == 0 and score > alpha:
+                score = -_negamax(
+                    board,
+                    state,
+                    depth - 1,
+                    -INFINITY,
+                    -alpha,
+                    1,
+                    stats,
+                    deadline,
+                    history,
+                    history_count,
+                    path,
+                    1,
+                    tt_keys,
+                    tt_scores,
+                    tt_moves,
+                    tt_depths,
+                    tt_bounds,
+                )
         unmake_move(board, state, move, undo)
         if stats[1] != 0:
             return best_score, best_move, int(stats[0]), False
