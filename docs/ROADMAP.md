@@ -103,8 +103,9 @@ Never spend a slot merely to test a hypothesis that the local harness can answer
   promotions.
 - Quiet-move killer/history ordering preserved every move and score over the 12-opening suite.
   Together with tactical-only quiescence ordering it reduced depth-4 nodes from 705,590 to
-  304,343 (57%) and depth-5 nodes from 4,795,164 to 1,688,240 (65%). It still requires paired
-  games against frozen v4 before promotion.
+  304,343 (57%) and depth-5 nodes from 4,795,164 to 1,688,240 (65%). It then scored 66.7%
+  (`+4 =8 -0`) in the 12-game screen and 77.1% (`+16 =5 -3`) in the 24-game gate against
+  frozen v4, with zero technical failures. Promote this as fast-search v5.
 - Rated round 5 was lost by checkmate after `16...Ne4 17.Bxe4 gxf3`. Replay matched all Black
   moves with the older Python V1 engine, while compiled V4 rejects `16...Ne4` from depth 4 and
   sees the forced mate after `17...gxf3` at depth 5. This is evidence that the game was probably
