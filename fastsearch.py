@@ -106,6 +106,19 @@ class FastSearchResult:
     elapsed_ms: float
 
 
+@dataclass(slots=True)
+class FastSearchMemory:
+    """Reusable search tables for one game process."""
+
+    tt_keys: np.ndarray
+    tt_scores: np.ndarray
+    tt_moves: np.ndarray
+    tt_depths: np.ndarray
+    tt_bounds: np.ndarray
+    killer_moves: np.ndarray
+    history_scores: np.ndarray
+
+
 @njit(cache=False)
 def evaluate(board: np.ndarray, state: np.ndarray) -> int:
     middlegame = 0
@@ -761,6 +774,12 @@ def _new_move_ordering() -> tuple[np.ndarray, np.ndarray]:
     )
 
 
+def new_search_memory() -> FastSearchMemory:
+    tt = _new_tt()
+    move_ordering = _new_move_ordering()
+    return FastSearchMemory(*tt, *move_ordering)
+
+
 def search_root(
     board: np.ndarray,
     state: np.ndarray,
@@ -818,6 +837,7 @@ def search_timed(
     fen: str,
     time_left_ms: int,
     history: list[int] | tuple[int, ...] = (),
+    memory: FastSearchMemory | None = None,
 ) -> FastSearchResult:
     """Iteratively deepen until the conservative per-move deadline."""
     source = chess.Board(fen)
@@ -828,8 +848,16 @@ def search_timed(
     if len(legal) == 0:
         raise ValueError("search requested from a terminal position")
     history_array, history_count = _history_array(history, int(state[HASH_KEY]))
-    tt = _new_tt()
-    move_ordering = _new_move_ordering()
+    if memory is None:
+        memory = new_search_memory()
+    tt = (
+        memory.tt_keys,
+        memory.tt_scores,
+        memory.tt_moves,
+        memory.tt_depths,
+        memory.tt_bounds,
+    )
+    move_ordering = (memory.killer_moves, memory.history_scores)
 
     best_move = int(legal[0])
     best_score = -INFINITY

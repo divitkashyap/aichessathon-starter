@@ -7,7 +7,13 @@ import chess
 import numpy as np
 
 from fastcore import HASH_KEY, move_to_uci, position_from_fen
-from fastsearch import evaluate, search_fixed_depth, search_root, search_timed
+from fastsearch import (
+    evaluate,
+    new_search_memory,
+    search_fixed_depth,
+    search_root,
+    search_timed,
+)
 
 
 class FastSearchTests(unittest.TestCase):
@@ -55,6 +61,16 @@ class FastSearchTests(unittest.TestCase):
         self.assertIn(chess.Move.from_uci(result.move), chess.Board().legal_moves)
         self.assertGreaterEqual(result.depth, 1)
         self.assertLess(elapsed, 0.1)
+
+    def test_timed_search_can_reuse_one_game_memory(self) -> None:
+        memory = new_search_memory()
+        first = search_timed(chess.STARTING_FEN, 250, memory=memory)
+        board = chess.Board()
+        board.push_uci(first.move)
+        board.push(next(iter(board.legal_moves)))
+        second = search_timed(board.fen(), 250, memory=memory)
+        self.assertIn(chess.Move.from_uci(second.move), board.legal_moves)
+        self.assertGreater(np.count_nonzero(memory.tt_depths >= 0), 0)
 
     def test_search_avoids_third_repetition_when_a_win_remains(self) -> None:
         fen = "7k/8/8/8/8/8/r7/Q6K w - - 0 1"

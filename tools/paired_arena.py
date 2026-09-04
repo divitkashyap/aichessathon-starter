@@ -1,6 +1,7 @@
 """Play a candidate/champion match with every opening used in both directions."""
 
 import argparse
+import hashlib
 from pathlib import Path
 
 from harness.referee import FAILED_TERMINATIONS, play_match
@@ -19,6 +20,19 @@ def main() -> None:
 
     candidate = arguments.candidate.resolve()
     champion = arguments.champion.resolve()
+    if not 1 <= arguments.openings <= len(opening_fens()):
+        parser.error(f"--openings must be between 1 and {len(opening_fens())}")
+    for role, path in (("candidate", candidate), ("champion", champion)):
+        if not path.exists():
+            parser.error(f"{role} does not exist: {path}")
+        print(f"{role}={path}", flush=True)
+        if path.is_file():
+            print(f"{role}_sha256={hashlib.sha256(path.read_bytes()).hexdigest()}", flush=True)
+    print(
+        f"clock={arguments.base_ms}+{arguments.increment_ms}ms "
+        f"paired_openings={arguments.openings}",
+        flush=True,
+    )
     wins = draws = losses = 0
     failures: dict[str, int] = {}
 
