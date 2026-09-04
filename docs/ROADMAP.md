@@ -93,8 +93,9 @@ Never spend a slot merely to test a hypothesis that the local harness can answer
   4 September after initializing in 28.8--29.8 seconds and passing both platform smoke games.
 - Principal-variation search challenger preserved every move and score over the 12-opening
   fixed-depth suite while reducing nodes by 35% at depth 4 (1,090,928 to 705,590) and 43% at
-  depth 5 (8,377,767 to 4,795,164). It still requires paired games against frozen v4 before
-  promotion.
+  depth 5 (8,377,767 to 4,795,164). It scored 62.5% in a 12-game screen, then 52.1%
+  (`+10 =5 -9`) in the 24-game gate against frozen v4, with zero technical failures. The
+  full result is too close to distinguish from match noise, so this was not uploaded alone.
 - Legal generation now finds the moving side's king once per position rather than once per
   candidate move. The 12-opening depth-5 benchmark kept the same 4,795,164 nodes and improved
   median throughput from about 670,000 to 725,000 nodes/second (8%); 100,000 differential
