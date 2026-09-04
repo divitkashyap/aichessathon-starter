@@ -50,6 +50,41 @@ Solving one tactical position is not proof of stronger general play. Both
 candidates must pass new-opening matches and longer-clock checks before any
 promotion. Coefficients and extension limits are held fixed during validation.
 
+The shelter candidate completed the separate 24-game new-opening match versus
+the terminal reference at 2000+100 ms: **9 wins, 8 draws, 7 losses (54.2%)**,
+no technical terminations. This modest margin does not establish a reliable
+strength improvement; it is not included in the check-extension candidate.
+
+The check-extension candidate's initial 2000+100 ms screen finished **2 wins,
+1 draw, 3 losses** against the terminal reference, no technical terminations.
+At fixed depth four across 12 legacy openings it used 223,236 nodes versus
+193,850 (15.2% more), retaining all 12 best moves. Warmed local elapsed times
+were approximately 381 versus 343 ms while other tests were running; this is
+not a clean hardware benchmark. It is undergoing a longer-clock comparison
+with unchanged parameters, not being promoted on the tactical test alone.
+
+## Other game reviews
+
+Round 13, a draw as White against StockZero, highlights the endgame position
+`8/8/1R1p2pk/3B1p2/P4P1P/2rn4/5K2/8 w - - 5 41`: the played `K e3`
+(UCI `f2e3`) had the largest non-matching depth-five loss proxy, 204 cp, with
+40.616 seconds remaining. This needs deeper independent evaluation before
+calling it a proven blunder. Some other large proxies occur even when the
+played move equals the reviewer's best move, demonstrating the measure's noise.
+
+Round 15 was a checkmate win as White against Cheeky. Its largest non-matching
+proxy was 100 cp in an already-favorable position, not a comparable immediate
+king-safety collapse. These observations are descriptive, not build attribution.
+
+The review also exposed nonzero evaluations after entering insufficient-
+material endings. `lmr_draws` separately sets only clearly recognized dead
+material positions to zero, leaving all other evaluation values unchanged.
+It has four tests, including a randomized sparse-position differential check
+against python-chess. No neural retraining is involved in these experiments.
+Its initial six-game screen against the terminal reference finished **2 wins,
+3 draws, 1 loss (58.3%)**, no technical terminations. This is preliminary,
+not sufficient standalone evidence for a playing-strength claim.
+
 ## Timing and submission context
 
 At approximately 23:07 London on 4 September, the dashboard showed v6 active,

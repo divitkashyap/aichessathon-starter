@@ -1,5 +1,6 @@
 """Tests for the paired-arena opening suites."""
 
+import hashlib
 import unittest
 
 import chess
@@ -30,6 +31,11 @@ class ArenaOpeningTests(unittest.TestCase):
         self.assertTrue(set(opening_fens("legacy")).isdisjoint(opening_fens("validation")))
 
     def test_default_suite_is_stable_legacy(self) -> None:
+        # Frozen from commit 7d1101a, independent of the live source constant.
+        self.assertEqual(
+            hashlib.sha256("\n".join(OPENING_LINES).encode()).hexdigest(),
+            "21f1af58e1d7f5655ffec8c7acacef22faa2a2634f71dd87d6a4c9575909a6a3",
+        )
         self.assertEqual(DEFAULT_SUITE, "legacy")
         self.assertEqual(opening_lines(), OPENING_LINES)
         self.assertEqual(opening_fens(), opening_fens("legacy"))

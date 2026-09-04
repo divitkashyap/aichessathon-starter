@@ -53,6 +53,15 @@ class ReviewPgnTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             review_pgn.review_pgn(path, "white", search=lambda _fen, _depth: Result("e2e4", 0))
 
+    def test_nonterminal_child_mate_distance_is_root_relative(self) -> None:
+        for sign in (-1, 1):
+            directory = Path(tempfile.mkdtemp(prefix="review-pgn-mate-test-"))
+            path = self.write_pgn(directory, "1. e4 {[%clk 0:10:00]} *\n")
+            search = Mock(side_effect=[Result("e2e4", 0), Result("e7e5", sign * (review_pgn.MATE - 3))])
+            report = review_pgn.review_pgn(path, "white", search=search)
+            record = report["games"][0]["moves"][0]
+            self.assertEqual(record["parent_view_child_score"], -sign * (review_pgn.MATE - 4))
+
     def test_terminal_child_uses_mate_score_without_search(self) -> None:
         pgn = """[SetUp \"1\"]
 [FEN \"7k/5Q2/6K1/8/8/8/8/8 w - - 0 1\"]

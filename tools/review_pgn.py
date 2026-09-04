@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections.abc import Callable
 from pathlib import Path
@@ -11,7 +12,8 @@ from typing import Any
 import chess
 import chess.pgn
 
-from challengers.lmr_terminal.lmr_search import MATE, search_fixed_depth
+from challengers.lmr_terminal import lmr_search as reviewer_engine
+from challengers.lmr_terminal.lmr_search import MATE, MAX_SEARCH_PLY, search_fixed_depth
 
 SearchFunction = Callable[[str, int], Any]
 
@@ -63,6 +65,10 @@ def _review_game(
                 child_result = search(board.fen(en_passant="fen"), depth - 1)
                 child_score = int(child_result.score)
             parent_view_child_score = -child_score
+            if outcome is None and abs(child_score) >= MATE - MAX_SEARCH_PLY:
+                # A fresh child search measures mate distance from its own
+                # root. Add the played move when expressing it at our root.
+                parent_view_child_score += 1 if child_score > 0 else -1
             records.append(
                 {
                     "fen": fen,
@@ -117,7 +123,15 @@ def review_pgn(
     if not games:
         raise ValueError(f"PGN contains no games: {pgn_path}")
     return {
-        "diagnostic_notice": "Scores are our-engine diagnostics, not ground truth.",
+        "diagnostic_notice": (
+            "Scores are our-engine diagnostics, not ground truth. Root/child "
+            "selective searches can differ even for the recommended move."
+        ),
+        "pgn_sha256": hashlib.sha256(pgn_path.read_bytes()).hexdigest(),
+        "reviewer": "lmr_terminal" if search is search_fixed_depth else "injected_test_search",
+        "reviewer_source_sha256": hashlib.sha256(
+            Path(reviewer_engine.__file__).read_bytes()
+        ).hexdigest() if search is search_fixed_depth else None,
         "build": build if build is not None else "unknown",
         "color": color_name,
         "depth": depth,

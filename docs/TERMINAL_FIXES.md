@@ -31,3 +31,9 @@ in `artifacts/lmr-terminal-validation-1`. LMR without these fixes scored
 63.9% on that same validation suite in a separate run. These small samples
 do not distinguish the variants reliably. Keep the fixes available for a
 future release; the current approved v6 upload remains unchanged.
+
+Independent new-opening comparison against frozen v6 (`--suite validation`,
+12 paired openings, 2000+100 ms) finished **7 wins, 11 draws, 6 losses
+(52.1%)**, no technical terminations. Records:
+`artifacts/terminal-unseen-v6-1`. This is compatible with similar strength;
+do not claim a demonstrated playing-strength increase from this small margin.
