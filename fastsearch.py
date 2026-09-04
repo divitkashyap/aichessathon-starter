@@ -38,6 +38,11 @@ MAX_QDEPTH: Final = 10
 TIME_CHECK_MASK: Final = 2_047
 MAX_SEARCH_PLY: Final = 128
 MAX_GAME_HISTORY: Final = 600
+TT_SIZE: Final = 1 << 18
+TT_MASK: Final = TT_SIZE - 1
+TT_EXACT: Final = 0
+TT_LOWER: Final = 1
+TT_UPPER: Final = 2
 
 PIECE_VALUES: Final = np.array([0, 100, 320, 335, 500, 900, 0], dtype=np.int32)
 PHASE_WEIGHTS: Final = np.array([0, 0, 1, 1, 2, 4, 0], dtype=np.int8)
@@ -82,6 +87,13 @@ EG_TABLE: Final = np.array(
         ],
     ],
     dtype=np.int16,
+)
+HALFMOVE_HASH: Final = np.array(
+    [
+        ((index + 1) * 0x4F1BBCDCBFA54001) & ((1 << 63) - 1)
+        for index in range(101)
+    ],
+    dtype=np.int64,
 )
 
 
@@ -137,10 +149,12 @@ def _in_check(board: np.ndarray, state: np.ndarray) -> bool:
 
 
 @njit(cache=False)
-def _move_score(board: np.ndarray, state: np.ndarray, move: int) -> int:
+def _move_score(board: np.ndarray, state: np.ndarray, move: int, preferred: int) -> int:
     source = move & 63
     target = (move >> 6) & 63
     promotion = (move >> 12) & 7
+    if move == preferred:
+        return 10_000_000
     score = 0
     if promotion:
         score += 900_000 + int(PIECE_VALUES[promotion])
@@ -153,14 +167,19 @@ def _move_score(board: np.ndarray, state: np.ndarray, move: int) -> int:
 
 
 @njit(cache=False)
-def _order_moves(board: np.ndarray, state: np.ndarray, moves: np.ndarray) -> None:
+def _order_moves(
+    board: np.ndarray,
+    state: np.ndarray,
+    moves: np.ndarray,
+    preferred: int,
+) -> None:
     """In-place selection ordering avoids Python objects and sort allocations."""
     count = len(moves)
     for index in range(count - 1):
         best_index = index
-        best_score = _move_score(board, state, int(moves[index]))
+        best_score = _move_score(board, state, int(moves[index]), preferred)
         for candidate in range(index + 1, count):
-            score = _move_score(board, state, int(moves[candidate]))
+            score = _move_score(board, state, int(moves[candidate]), preferred)
             if score > best_score:
                 best_index = candidate
                 best_score = score
@@ -207,6 +226,30 @@ def _is_threefold(
 
 
 @njit(cache=False)
+def _tt_key(state: np.ndarray) -> np.int64:
+    halfmove = min(100, int(state[HALFMOVE]))
+    return np.int64(state[HASH_KEY]) ^ HALFMOVE_HASH[halfmove]
+
+
+@njit(cache=False)
+def _score_to_tt(score: int, ply: int) -> int:
+    if score >= MATE - MAX_SEARCH_PLY:
+        return score + ply
+    if score <= -MATE + MAX_SEARCH_PLY:
+        return score - ply
+    return score
+
+
+@njit(cache=False)
+def _score_from_tt(score: int, ply: int) -> int:
+    if score >= MATE - MAX_SEARCH_PLY:
+        return score - ply
+    if score <= -MATE + MAX_SEARCH_PLY:
+        return score + ply
+    return score
+
+
+@njit(cache=False)
 def _quiescence(
     board: np.ndarray,
     state: np.ndarray,
@@ -249,7 +292,7 @@ def _quiescence(
     moves = generate_legal_moves(board, state)
     if in_check and len(moves) == 0:
         return -MATE + ply
-    _order_moves(board, state, moves)
+    _order_moves(board, state, moves, 0)
     undo = np.empty(UNDO_SIZE, dtype=np.int64)
     for move_value in moves:
         move = int(move_value)
@@ -295,6 +338,11 @@ def _negamax(
     history_count: int,
     path: np.ndarray,
     path_count: int,
+    tt_keys: np.ndarray,
+    tt_scores: np.ndarray,
+    tt_moves: np.ndarray,
+    tt_depths: np.ndarray,
+    tt_bounds: np.ndarray,
 ) -> int:
     stats[0] += 1
     if _out_of_time(stats, deadline):
@@ -326,11 +374,30 @@ def _negamax(
             path_count,
         )
 
+    original_alpha = alpha
+    original_beta = beta
+    key = _tt_key(state)
+    tt_index = int(key) & TT_MASK
+    preferred = 0
+    if tt_depths[tt_index] >= 0 and tt_keys[tt_index] == key:
+        preferred = int(tt_moves[tt_index])
+        if tt_depths[tt_index] >= depth:
+            tt_score = _score_from_tt(int(tt_scores[tt_index]), ply)
+            if tt_bounds[tt_index] == TT_EXACT:
+                return tt_score
+            if tt_bounds[tt_index] == TT_LOWER and tt_score > alpha:
+                alpha = tt_score
+            elif tt_bounds[tt_index] == TT_UPPER and tt_score < beta:
+                beta = tt_score
+            if alpha >= beta:
+                return tt_score
+
     moves = generate_legal_moves(board, state)
     if len(moves) == 0:
         return -MATE + ply if _in_check(board, state) else 0
-    _order_moves(board, state, moves)
+    _order_moves(board, state, moves, preferred)
     best_score = -INFINITY
+    best_move = int(moves[0])
     undo = np.empty(UNDO_SIZE, dtype=np.int64)
     for move_value in moves:
         move = int(move_value)
@@ -349,16 +416,33 @@ def _negamax(
             history_count,
             path,
             path_count + 1,
+            tt_keys,
+            tt_scores,
+            tt_moves,
+            tt_depths,
+            tt_bounds,
         )
         unmake_move(board, state, move, undo)
         if stats[1] != 0:
             return 0
         if score > best_score:
             best_score = score
+            best_move = move
         if score > alpha:
             alpha = score
         if alpha >= beta:
             break
+    if tt_depths[tt_index] <= depth or tt_keys[tt_index] == key:
+        bound = TT_EXACT
+        if best_score <= original_alpha:
+            bound = TT_UPPER
+        elif best_score >= original_beta:
+            bound = TT_LOWER
+        tt_keys[tt_index] = key
+        tt_scores[tt_index] = _score_to_tt(best_score, ply)
+        tt_moves[tt_index] = best_move
+        tt_depths[tt_index] = depth
+        tt_bounds[tt_index] = bound
     return best_score
 
 
@@ -370,12 +454,22 @@ def _search_root(
     deadline: float,
     history: np.ndarray,
     history_count: int,
+    tt_keys: np.ndarray,
+    tt_scores: np.ndarray,
+    tt_moves: np.ndarray,
+    tt_depths: np.ndarray,
+    tt_bounds: np.ndarray,
 ) -> tuple[int, int, int, bool]:
     stats = np.zeros(2, dtype=np.int64)
     moves = generate_legal_moves(board, state)
     if len(moves) == 0:
         return 0, 0, 0, True
-    _order_moves(board, state, moves)
+    root_key = _tt_key(state)
+    root_index = int(root_key) & TT_MASK
+    preferred = 0
+    if tt_depths[root_index] >= 0 and tt_keys[root_index] == root_key:
+        preferred = int(tt_moves[root_index])
+    _order_moves(board, state, moves, preferred)
     best_move = int(moves[0])
     best_score = -INFINITY
     alpha = -INFINITY
@@ -398,6 +492,11 @@ def _search_root(
             history_count,
             path,
             1,
+            tt_keys,
+            tt_scores,
+            tt_moves,
+            tt_depths,
+            tt_bounds,
         )
         unmake_move(board, state, move, undo)
         if stats[1] != 0:
@@ -407,10 +506,17 @@ def _search_root(
             best_move = move
         if score > alpha:
             alpha = score
+    tt_keys[root_index] = root_key
+    tt_scores[root_index] = _score_to_tt(best_score, 0)
+    tt_moves[root_index] = best_move
+    tt_depths[root_index] = depth
+    tt_bounds[root_index] = TT_EXACT
     return best_score, best_move, int(stats[0]), True
 
 
-def _history_array(history: list[int] | tuple[int, ...], root_key: int) -> tuple[np.ndarray, int]:
+def _history_array(
+    history: list[int] | tuple[int, ...], root_key: int
+) -> tuple[np.ndarray, int]:
     values = list(history[-MAX_GAME_HISTORY:])
     if not values or values[-1] != root_key:
         values.append(root_key)
@@ -418,6 +524,16 @@ def _history_array(history: list[int] | tuple[int, ...], root_key: int) -> tuple
     array = np.zeros(MAX_GAME_HISTORY, dtype=np.int64)
     array[: len(values)] = values
     return array, len(values)
+
+
+def _new_tt() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    return (
+        np.zeros(TT_SIZE, dtype=np.int64),
+        np.zeros(TT_SIZE, dtype=np.int32),
+        np.zeros(TT_SIZE, dtype=np.int32),
+        np.full(TT_SIZE, -1, dtype=np.int8),
+        np.zeros(TT_SIZE, dtype=np.int8),
+    )
 
 
 def search_root(
@@ -428,7 +544,10 @@ def search_root(
     history: list[int] | tuple[int, ...] = (),
 ) -> tuple[int, int, int, bool]:
     history_array, history_count = _history_array(history, int(state[HASH_KEY]))
-    return _search_root(board, state, depth, deadline, history_array, history_count)
+    tt = _new_tt()
+    return _search_root(
+        board, state, depth, deadline, history_array, history_count, *tt
+    )
 
 
 def search_fixed_depth(fen: str, depth: int) -> FastSearchResult:
@@ -476,6 +595,7 @@ def search_timed(
     if len(legal) == 0:
         raise ValueError("search requested from a terminal position")
     history_array, history_count = _history_array(history, int(state[HASH_KEY]))
+    tt = _new_tt()
 
     best_move = int(legal[0])
     best_score = -INFINITY
@@ -483,7 +603,7 @@ def search_timed(
     total_nodes = 0
     for depth in range(1, 64):
         score, move, nodes, completed = _search_root(
-            board, state, depth, deadline, history_array, history_count
+            board, state, depth, deadline, history_array, history_count, *tt
         )
         total_nodes += nodes
         if not completed:
