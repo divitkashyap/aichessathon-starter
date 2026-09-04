@@ -29,6 +29,7 @@ CASTLING: Final = 1
 EP_SQUARE: Final = 2
 HALFMOVE: Final = 3
 FULLMOVE: Final = 4
+HASH_KEY: Final = 5
 
 WHITE_KING: Final = 1
 WHITE_QUEEN: Final = 2
@@ -41,7 +42,7 @@ CASTLE: Final = 1 << 17
 DOUBLE_PUSH: Final = 1 << 18
 
 MAX_MOVES: Final = 256
-UNDO_SIZE: Final = 7
+UNDO_SIZE: Final = 8
 UNDO_CAPTURED: Final = 0
 UNDO_CAPTURE_SQUARE: Final = 1
 UNDO_CASTLING: Final = 2
@@ -49,12 +50,35 @@ UNDO_EP_SQUARE: Final = 3
 UNDO_HALFMOVE: Final = 4
 UNDO_FULLMOVE: Final = 5
 UNDO_MOVED_PIECE: Final = 6
+UNDO_HASH_KEY: Final = 7
 
 KNIGHT_DELTAS: Final = ((1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1), (-2, 1), (-1, 2))
 KING_DELTAS: Final = ((1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1))
 BISHOP_DELTAS: Final = ((1, 1), (1, -1), (-1, -1), (-1, 1))
 ROOK_DELTAS: Final = ((1, 0), (0, -1), (-1, 0), (0, 1))
 SLIDER_DELTAS: Final = BISHOP_DELTAS + ROOK_DELTAS
+
+
+def _zobrist_numbers(count: int) -> np.ndarray:
+    """Create stable 63-bit SplitMix64 constants without runtime randomness."""
+    mask = (1 << 64) - 1
+    x = 0xA17C9E3779B97F4A
+    values = np.empty(count, dtype=np.int64)
+    for index in range(count):
+        x = (x + 0x9E3779B97F4A7C15) & mask
+        value = x
+        value = ((value ^ (value >> 30)) * 0xBF58476D1CE4E5B9) & mask
+        value = ((value ^ (value >> 27)) * 0x94D049BB133111EB) & mask
+        value ^= value >> 31
+        values[index] = value & ((1 << 63) - 1)
+    return values
+
+
+_ZOBRIST: Final = _zobrist_numbers(12 * 64 + 1 + 16 + 64)
+ZOBRIST_PIECES: Final = _ZOBRIST[: 12 * 64].reshape(12, 64)
+ZOBRIST_SIDE: Final = _ZOBRIST[12 * 64]
+ZOBRIST_CASTLING: Final = _ZOBRIST[12 * 64 + 1 : 12 * 64 + 17]
+ZOBRIST_EP: Final = _ZOBRIST[12 * 64 + 17 :]
 
 
 def encode_move(
@@ -97,9 +121,11 @@ def position_from_fen(fen: str) -> tuple[np.ndarray, np.ndarray]:
             -1 if source.ep_square is None else source.ep_square,
             source.halfmove_clock,
             source.fullmove_number,
+            0,
         ],
-        dtype=np.int16,
+        dtype=np.int64,
     )
+    state[HASH_KEY] = compute_hash(board, state)
     return board, state
 
 
@@ -119,6 +145,27 @@ def _append_move(
 ) -> int:
     moves[count] = _pack_move(source, target, promotion, flags)
     return count + 1
+
+
+@njit(cache=False)
+def _piece_hash_index(piece: int) -> int:
+    return piece - 1 if piece > 0 else 6 + (-piece - 1)
+
+
+@njit(cache=False)
+def compute_hash(board: np.ndarray, state: np.ndarray) -> np.int64:
+    """Compute the full key used to validate incremental hash updates."""
+    key = np.int64(0)
+    for square in range(64):
+        piece = int(board[square])
+        if piece != EMPTY:
+            key ^= ZOBRIST_PIECES[_piece_hash_index(piece), square]
+    if state[SIDE] == BLACK:
+        key ^= ZOBRIST_SIDE
+    key ^= ZOBRIST_CASTLING[int(state[CASTLING])]
+    if state[EP_SQUARE] >= 0:
+        key ^= ZOBRIST_EP[int(state[EP_SQUARE])]
+    return key
 
 
 @njit(cache=False)
@@ -346,22 +393,42 @@ def make_move(
     undo[UNDO_HALFMOVE] = state[HALFMOVE]
     undo[UNDO_FULLMOVE] = state[FULLMOVE]
     undo[UNDO_MOVED_PIECE] = piece
+    undo[UNDO_HASH_KEY] = state[HASH_KEY]
+
+    hash_key = np.int64(state[HASH_KEY])
+    hash_key ^= ZOBRIST_PIECES[_piece_hash_index(piece), source]
+    if captured != EMPTY:
+        hash_key ^= ZOBRIST_PIECES[_piece_hash_index(captured), capture_square]
+    hash_key ^= ZOBRIST_CASTLING[int(state[CASTLING])]
+    if state[EP_SQUARE] >= 0:
+        hash_key ^= ZOBRIST_EP[int(state[EP_SQUARE])]
+    hash_key ^= ZOBRIST_SIDE
 
     board[source] = EMPTY
-    board[target] = side * promotion if promotion else piece
+    placed_piece = side * promotion if promotion else piece
+    board[target] = placed_piece
+    hash_key ^= ZOBRIST_PIECES[_piece_hash_index(placed_piece), target]
     if move & EN_PASSANT:
         board[capture_square] = EMPTY
     if move & CASTLE:
         if target == chess.G1:
+            hash_key ^= ZOBRIST_PIECES[_piece_hash_index(ROOK), chess.H1]
+            hash_key ^= ZOBRIST_PIECES[_piece_hash_index(ROOK), chess.F1]
             board[chess.F1] = board[chess.H1]
             board[chess.H1] = EMPTY
         elif target == chess.C1:
+            hash_key ^= ZOBRIST_PIECES[_piece_hash_index(ROOK), chess.A1]
+            hash_key ^= ZOBRIST_PIECES[_piece_hash_index(ROOK), chess.D1]
             board[chess.D1] = board[chess.A1]
             board[chess.A1] = EMPTY
         elif target == chess.G8:
+            hash_key ^= ZOBRIST_PIECES[_piece_hash_index(-ROOK), chess.H8]
+            hash_key ^= ZOBRIST_PIECES[_piece_hash_index(-ROOK), chess.F8]
             board[chess.F8] = board[chess.H8]
             board[chess.H8] = EMPTY
         else:
+            hash_key ^= ZOBRIST_PIECES[_piece_hash_index(-ROOK), chess.A8]
+            hash_key ^= ZOBRIST_PIECES[_piece_hash_index(-ROOK), chess.D8]
             board[chess.D8] = board[chess.A8]
             board[chess.A8] = EMPTY
 
@@ -378,6 +445,9 @@ def make_move(
         rights &= ~BLACK_KING
     state[CASTLING] = rights
     state[EP_SQUARE] = source + 8 * side if move & DOUBLE_PUSH else -1
+    hash_key ^= ZOBRIST_CASTLING[rights]
+    if state[EP_SQUARE] >= 0:
+        hash_key ^= ZOBRIST_EP[int(state[EP_SQUARE])]
     if abs(piece) == PAWN or captured != EMPTY or move & EN_PASSANT:
         state[HALFMOVE] = 0
     else:
@@ -385,6 +455,7 @@ def make_move(
     if side == BLACK:
         state[FULLMOVE] += 1
     state[SIDE] = -side
+    state[HASH_KEY] = hash_key
 
 
 @njit(cache=False)
@@ -425,6 +496,7 @@ def unmake_move(
     state[EP_SQUARE] = undo[UNDO_EP_SQUARE]
     state[HALFMOVE] = undo[UNDO_HALFMOVE]
     state[FULLMOVE] = undo[UNDO_FULLMOVE]
+    state[HASH_KEY] = undo[UNDO_HASH_KEY]
 
 
 @njit(cache=False)
@@ -434,7 +506,7 @@ def generate_legal_moves(board: np.ndarray, state: np.ndarray) -> np.ndarray:
     legal = np.empty(MAX_MOVES, dtype=np.int32)
     legal_count = 0
     side = int(state[SIDE])
-    undo = np.empty(UNDO_SIZE, dtype=np.int16)
+    undo = np.empty(UNDO_SIZE, dtype=np.int64)
     for index in range(pseudo_count):
         move = int(pseudo[index])
         make_move(board, state, move, undo)
@@ -461,7 +533,7 @@ def perft(board: np.ndarray, state: np.ndarray, depth: int) -> np.int64:
         return np.int64(len(moves))
 
     nodes = np.int64(0)
-    undo = np.empty(UNDO_SIZE, dtype=np.int16)
+    undo = np.empty(UNDO_SIZE, dtype=np.int64)
     for move in moves:
         make_move(board, state, int(move), undo)
         nodes += perft(board, state, depth - 1)

@@ -57,7 +57,7 @@ def verify_position(board: chess.Board, rng: random.Random) -> tuple[bool, bool,
     was_en_passant = bool(encoded & EN_PASSANT)
     was_promotion = reference_move.promotion is not None
 
-    undo = np.empty(UNDO_SIZE, dtype=np.int16)
+    undo = np.empty(UNDO_SIZE, dtype=np.int64)
     make_move(pieces, state, encoded, undo)
     board.push(reference_move)
     expected_pieces, expected_state = position_from_fen(board.fen(en_passant="fen"))

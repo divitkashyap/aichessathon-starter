@@ -55,7 +55,7 @@ class FastCoreTests(unittest.TestCase):
         original_pieces = pieces.copy()
         original_state = state.copy()
         for move in generate_legal_moves(pieces, state):
-            undo = np.empty(UNDO_SIZE, dtype=np.int16)
+            undo = np.empty(UNDO_SIZE, dtype=np.int64)
             make_move(pieces, state, int(move), undo)
             unmake_move(pieces, state, int(move), undo)
             np.testing.assert_array_equal(pieces, original_pieces)
