@@ -89,4 +89,5 @@ Never spend a slot merely to test a hypothesis that the local harness can answer
   infrastructure; rejected as a standalone strength promotion.
 - Fixed-size transposition-table challenger: reduced fixed-depth nodes by 7% at depth 4,
   17% at depth 5 and 36% at depth 6, then scored 62.5% (`+9 =12 -3`) against frozen v3
-  over 24 paired games with zero technical failures. Cleared the local promotion gate.
+  over 24 paired games with zero technical failures. Submitted as v4; valid and active on
+  4 September after initializing in 28.8--29.8 seconds and passing both platform smoke games.
