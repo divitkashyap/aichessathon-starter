@@ -149,12 +149,10 @@ def _in_check(board: np.ndarray, state: np.ndarray) -> bool:
 
 
 @njit(cache=False)
-def _move_score(board: np.ndarray, state: np.ndarray, move: int, preferred: int) -> int:
+def _tactical_move_score(board: np.ndarray, move: int) -> int:
     source = move & 63
     target = (move >> 6) & 63
     promotion = (move >> 12) & 7
-    if move == preferred:
-        return 10_000_000
     score = 0
     if promotion:
         score += 900_000 + int(PIECE_VALUES[promotion])
@@ -167,24 +165,121 @@ def _move_score(board: np.ndarray, state: np.ndarray, move: int, preferred: int)
 
 
 @njit(cache=False)
+def _move_score(
+    board: np.ndarray,
+    state: np.ndarray,
+    move: int,
+    preferred: int,
+    ply: int,
+    killer_moves: np.ndarray,
+    history_scores: np.ndarray,
+) -> int:
+    if move == preferred:
+        return 10_000_000
+    tactical_score = _tactical_move_score(board, move)
+    if tactical_score:
+        return tactical_score
+    if ply < MAX_SEARCH_PLY:
+        if move == killer_moves[ply, 0]:
+            return 800_000
+        if move == killer_moves[ply, 1]:
+            return 700_000
+    side_index = 0 if state[SIDE] > 0 else 1
+    source = move & 63
+    target = (move >> 6) & 63
+    return int(history_scores[side_index, source * 64 + target])
+
+
+@njit(cache=False)
 def _order_moves(
     board: np.ndarray,
     state: np.ndarray,
     moves: np.ndarray,
     preferred: int,
+    ply: int,
+    killer_moves: np.ndarray,
+    history_scores: np.ndarray,
 ) -> None:
     """In-place selection ordering avoids Python objects and sort allocations."""
     count = len(moves)
     for index in range(count - 1):
         best_index = index
-        best_score = _move_score(board, state, int(moves[index]), preferred)
+        best_score = _move_score(
+            board,
+            state,
+            int(moves[index]),
+            preferred,
+            ply,
+            killer_moves,
+            history_scores,
+        )
         for candidate in range(index + 1, count):
-            score = _move_score(board, state, int(moves[candidate]), preferred)
+            score = _move_score(
+                board,
+                state,
+                int(moves[candidate]),
+                preferred,
+                ply,
+                killer_moves,
+                history_scores,
+            )
             if score > best_score:
                 best_index = candidate
                 best_score = score
         if best_index != index:
             moves[index], moves[best_index] = moves[best_index], moves[index]
+
+
+@njit(cache=False)
+def _order_quiescence_moves(
+    board: np.ndarray,
+    moves: np.ndarray,
+    include_quiets: bool,
+) -> int:
+    """Put relevant tactical moves first and return the number to search."""
+    count = len(moves)
+    if not include_quiets:
+        tactical_count = 0
+        for index in range(count):
+            move = int(moves[index])
+            if move & CAPTURE or (move >> 12) & 7:
+                moves[tactical_count], moves[index] = moves[index], moves[tactical_count]
+                tactical_count += 1
+        count = tactical_count
+
+    for index in range(count - 1):
+        best_index = index
+        best_score = _tactical_move_score(board, int(moves[index]))
+        for candidate in range(index + 1, count):
+            score = _tactical_move_score(board, int(moves[candidate]))
+            if score > best_score:
+                best_index = candidate
+                best_score = score
+        if best_index != index:
+            moves[index], moves[best_index] = moves[best_index], moves[index]
+    return count
+
+
+@njit(cache=False)
+def _record_quiet_cutoff(
+    state: np.ndarray,
+    move: int,
+    depth: int,
+    ply: int,
+    killer_moves: np.ndarray,
+    history_scores: np.ndarray,
+) -> None:
+    if move & CAPTURE or (move >> 12) & 7:
+        return
+    if ply < MAX_SEARCH_PLY and move != killer_moves[ply, 0]:
+        killer_moves[ply, 1] = killer_moves[ply, 0]
+        killer_moves[ply, 0] = move
+    side_index = 0 if state[SIDE] > 0 else 1
+    index = (move & 63) * 64 + ((move >> 6) & 63)
+    history_scores[side_index, index] = min(
+        500_000,
+        int(history_scores[side_index, index]) + depth * depth,
+    )
 
 
 @njit(cache=False)
@@ -292,12 +387,10 @@ def _quiescence(
     moves = generate_legal_moves(board, state)
     if in_check and len(moves) == 0:
         return -MATE + ply
-    _order_moves(board, state, moves, 0)
+    move_count = _order_quiescence_moves(board, moves, in_check)
     undo = np.empty(UNDO_SIZE, dtype=np.int64)
-    for move_value in moves:
-        move = int(move_value)
-        if not in_check and not (move & CAPTURE) and not ((move >> 12) & 7):
-            continue
+    for move_index in range(move_count):
+        move = int(moves[move_index])
         make_move(board, state, move, undo)
         path[path_count] = state[HASH_KEY]
         score = -_quiescence(
@@ -343,6 +436,8 @@ def _negamax(
     tt_moves: np.ndarray,
     tt_depths: np.ndarray,
     tt_bounds: np.ndarray,
+    killer_moves: np.ndarray,
+    history_scores: np.ndarray,
 ) -> int:
     stats[0] += 1
     if _out_of_time(stats, deadline):
@@ -395,7 +490,15 @@ def _negamax(
     moves = generate_legal_moves(board, state)
     if len(moves) == 0:
         return -MATE + ply if _in_check(board, state) else 0
-    _order_moves(board, state, moves, preferred)
+    _order_moves(
+        board,
+        state,
+        moves,
+        preferred,
+        ply,
+        killer_moves,
+        history_scores,
+    )
     best_score = -INFINITY
     best_move = int(moves[0])
     undo = np.empty(UNDO_SIZE, dtype=np.int64)
@@ -422,6 +525,8 @@ def _negamax(
                 tt_moves,
                 tt_depths,
                 tt_bounds,
+                killer_moves,
+                history_scores,
             )
         else:
             # Principal-variation search: later moves first prove they cannot
@@ -445,6 +550,8 @@ def _negamax(
                 tt_moves,
                 tt_depths,
                 tt_bounds,
+                killer_moves,
+                history_scores,
             )
             if stats[1] == 0 and alpha < score < beta:
                 score = -_negamax(
@@ -465,6 +572,8 @@ def _negamax(
                     tt_moves,
                     tt_depths,
                     tt_bounds,
+                    killer_moves,
+                    history_scores,
                 )
         unmake_move(board, state, move, undo)
         if stats[1] != 0:
@@ -475,6 +584,14 @@ def _negamax(
         if score > alpha:
             alpha = score
         if alpha >= beta:
+            _record_quiet_cutoff(
+                state,
+                move,
+                depth,
+                ply,
+                killer_moves,
+                history_scores,
+            )
             break
     if tt_depths[tt_index] <= depth or tt_keys[tt_index] == key:
         bound = TT_EXACT
@@ -503,6 +620,8 @@ def _search_root(
     tt_moves: np.ndarray,
     tt_depths: np.ndarray,
     tt_bounds: np.ndarray,
+    killer_moves: np.ndarray,
+    history_scores: np.ndarray,
 ) -> tuple[int, int, int, bool]:
     stats = np.zeros(2, dtype=np.int64)
     moves = generate_legal_moves(board, state)
@@ -513,7 +632,15 @@ def _search_root(
     preferred = 0
     if tt_depths[root_index] >= 0 and tt_keys[root_index] == root_key:
         preferred = int(tt_moves[root_index])
-    _order_moves(board, state, moves, preferred)
+    _order_moves(
+        board,
+        state,
+        moves,
+        preferred,
+        0,
+        killer_moves,
+        history_scores,
+    )
     best_move = int(moves[0])
     best_score = -INFINITY
     alpha = -INFINITY
@@ -542,6 +669,8 @@ def _search_root(
                 tt_moves,
                 tt_depths,
                 tt_bounds,
+                killer_moves,
+                history_scores,
             )
         else:
             score = -_negamax(
@@ -562,6 +691,8 @@ def _search_root(
                 tt_moves,
                 tt_depths,
                 tt_bounds,
+                killer_moves,
+                history_scores,
             )
             if stats[1] == 0 and score > alpha:
                 score = -_negamax(
@@ -582,6 +713,8 @@ def _search_root(
                     tt_moves,
                     tt_depths,
                     tt_bounds,
+                    killer_moves,
+                    history_scores,
                 )
         unmake_move(board, state, move, undo)
         if stats[1] != 0:
@@ -621,6 +754,13 @@ def _new_tt() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarra
     )
 
 
+def _new_move_ordering() -> tuple[np.ndarray, np.ndarray]:
+    return (
+        np.zeros((MAX_SEARCH_PLY, 2), dtype=np.int32),
+        np.zeros((2, 64 * 64), dtype=np.int32),
+    )
+
+
 def search_root(
     board: np.ndarray,
     state: np.ndarray,
@@ -630,8 +770,16 @@ def search_root(
 ) -> tuple[int, int, int, bool]:
     history_array, history_count = _history_array(history, int(state[HASH_KEY]))
     tt = _new_tt()
+    move_ordering = _new_move_ordering()
     return _search_root(
-        board, state, depth, deadline, history_array, history_count, *tt
+        board,
+        state,
+        depth,
+        deadline,
+        history_array,
+        history_count,
+        *tt,
+        *move_ordering,
     )
 
 
@@ -681,6 +829,7 @@ def search_timed(
         raise ValueError("search requested from a terminal position")
     history_array, history_count = _history_array(history, int(state[HASH_KEY]))
     tt = _new_tt()
+    move_ordering = _new_move_ordering()
 
     best_move = int(legal[0])
     best_score = -INFINITY
@@ -688,7 +837,14 @@ def search_timed(
     total_nodes = 0
     for depth in range(1, 64):
         score, move, nodes, completed = _search_root(
-            board, state, depth, deadline, history_array, history_count, *tt
+            board,
+            state,
+            depth,
+            deadline,
+            history_array,
+            history_count,
+            *tt,
+            *move_ordering,
         )
         total_nodes += nodes
         if not completed:
