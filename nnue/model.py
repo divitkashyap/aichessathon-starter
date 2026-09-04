@@ -15,6 +15,7 @@ from nnue.features import INPUT_FEATURES, PADDING_INDEX
 @dataclass(frozen=True, slots=True)
 class NNUEConfig:
     feature_hidden: int = 128
+    output_scale_cp: int = 400
 
 
 class SparseNNUE(nn.Module):
@@ -55,7 +56,8 @@ class SparseNNUE(nn.Module):
         them = torch.where(white_to_move, black_accumulator, white_accumulator)
         us = self.clipped_relu(us)
         them = self.clipped_relu(them)
-        return (self.output(us) - self.output(them)).squeeze(1) + self.tempo
+        raw = (self.output(us) - self.output(them)).squeeze(1) + self.tempo
+        return raw * self.config.output_scale_cp
 
 
 def save_checkpoint(

@@ -11,6 +11,8 @@ rollback champion until trained weights pass parity, speed and paired-game gates
 - Both kings are represented by the king buckets rather than duplicated as piece features.
 - A 128-wide clipped accumulator feeds a shared antisymmetric linear head:
   `tempo + head(side-to-move) - head(opponent)`.
+- The dimensionless head is scaled by 400 to produce search-friendly centipawn values without
+  forcing training to grow unnecessarily large output weights.
 - Training uses PyTorch; deployment uses integer NumPy weights and Numba inference.
 
 At 128 accumulator channels, the quantized feature table is about 5 MiB.  It remains comfortably

@@ -32,6 +32,7 @@ def evaluate_quantized_reference(
     total = int(weights.tempo) + int(
         np.dot(weights.output_weight.astype(np.int64), difference)
     )
+    total *= weights.output_scale_cp
     denominator = weights.feature_scale * weights.weight_scale
     if total >= 0:
         return (total + denominator // 2) // denominator
@@ -47,6 +48,7 @@ def evaluate_quantized_arrays(
     feature_bias: np.ndarray,
     output_weight: np.ndarray,
     tempo: int,
+    output_scale_cp: int,
     feature_scale: int,
     weight_scale: int,
 ) -> int:
@@ -69,6 +71,7 @@ def evaluate_quantized_arrays(
         us_value = min(feature_scale, max(0, us[channel]))
         them_value = min(feature_scale, max(0, them[channel]))
         total += np.int64(output_weight[channel]) * (us_value - them_value)
+    total *= output_scale_cp
     denominator = feature_scale * weight_scale
     if total >= 0:
         return int((total + denominator // 2) // denominator)
@@ -89,6 +92,7 @@ def evaluate_quantized(
         weights.feature_bias,
         weights.output_weight,
         int(weights.tempo),
+        weights.output_scale_cp,
         weights.feature_scale,
         weights.weight_scale,
     )

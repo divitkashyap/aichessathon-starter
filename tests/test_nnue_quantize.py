@@ -17,8 +17,6 @@ class NNUEQuantizationTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         torch.manual_seed(7)
         cls.model = SparseNNUE(NNUEConfig(feature_hidden=16)).eval()
-        with torch.no_grad():
-            cls.model.output.weight.mul_(300.0)
         cls.weights = quantize(cls.model)
 
     def _float_evaluation(self, board: chess.Board) -> float:

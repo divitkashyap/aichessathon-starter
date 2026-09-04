@@ -23,6 +23,7 @@ class QuantizedNNUE:
     feature_bias: np.ndarray
     output_weight: np.ndarray
     tempo: np.int64
+    output_scale_cp: int
     feature_scale: int = FEATURE_SCALE
     weight_scale: int = WEIGHT_SCALE
 
@@ -44,6 +45,7 @@ def quantize(model: SparseNNUE) -> QuantizedNNUE:
         feature_bias=_round_clip(feature_bias, FEATURE_SCALE, np.int32),
         output_weight=_round_clip(output_weight, WEIGHT_SCALE, np.int16),
         tempo=np.int64(round(float(tempo) * FEATURE_SCALE * WEIGHT_SCALE)),
+        output_scale_cp=model.config.output_scale_cp,
     )
 
 
@@ -55,6 +57,7 @@ def save_quantized(path: str | Path, weights: QuantizedNNUE) -> None:
         "input_features": INPUT_FEATURES,
         "feature_hidden": int(weights.feature.shape[1]),
         "head": "antisymmetric-linear",
+        "output_scale_cp": weights.output_scale_cp,
     }
     np.savez_compressed(
         Path(path),
@@ -78,6 +81,7 @@ def load_quantized(path: str | Path) -> QuantizedNNUE:
             feature_bias=archive["feature_bias"].copy(),
             output_weight=archive["output_weight"].copy(),
             tempo=np.int64(archive["tempo"][0]),
+            output_scale_cp=int(metadata["output_scale_cp"]),
             feature_scale=int(metadata["feature_scale"]),
             weight_scale=int(metadata["weight_scale"]),
         )
