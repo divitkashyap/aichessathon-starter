@@ -68,6 +68,6 @@ Exit gate: no race, clock or state-corruption failures over a long stress run.
 
 ## Daily upload policy
 
-The platform permits six uploads per team per day. Upload one stable champion each day and use
+The live dashboard currently permits ten uploads per team per day. Upload one stable champion each day and use
 additional slots only for a candidate with positive local evidence or a platform-specific fix.
 Never spend a slot merely to test a hypothesis that the local harness can answer.

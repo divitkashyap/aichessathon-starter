@@ -8,6 +8,7 @@ core can then move to numba without changing the public agent contract.
 from __future__ import annotations
 
 import math
+import os
 import time
 from dataclasses import dataclass
 from typing import Final, Literal
@@ -21,6 +22,17 @@ MAX_PLY: Final = 96
 MAX_QPLY: Final = 12
 TIME_CHECK_MASK: Final = 127
 TT_MAX_ENTRIES: Final = 250_000
+ASPIRATION_WINDOW: Final = 45
+FUTILITY_MARGIN: Final = 120
+
+# Development experiments are isolated behind environment switches so each
+# heuristic can be measured against the frozen champion. Defaults stay off until
+# a paired match demonstrates a gain.
+ENABLE_ASPIRATION: Final = os.environ.get("EINSTEIN_ASPIRATION") == "1"
+ENABLE_NULL_MOVE: Final = os.environ.get("EINSTEIN_NULL_MOVE") == "1"
+ENABLE_LMR: Final = os.environ.get("EINSTEIN_LMR") == "1"
+ENABLE_FUTILITY: Final = os.environ.get("EINSTEIN_FUTILITY") == "1"
+ENABLE_CHECK_ORDERING: Final = os.environ.get("EINSTEIN_CHECK_ORDERING") == "1"
 
 EXACT: Final = 0
 LOWER: Final = 1
@@ -257,7 +269,9 @@ class ChessEngine:
             if depth > 1 and time.perf_counter() >= self.deadline:
                 break
             try:
-                score, move = self._search_root(board, depth, best_move)
+                score, move = self._aspiration_search(
+                    board, depth, best_move, best_score, completed_depth > 0
+                )
             except SearchTimeout:
                 break
             best_move = move
@@ -277,6 +291,28 @@ class ChessEngine:
             principal_variation=self._principal_variation(board, completed_depth),
         )
 
+    def _aspiration_search(
+        self,
+        board: chess.Board,
+        depth: int,
+        previous_best: chess.Move,
+        previous_score: int,
+        use_window: bool,
+    ) -> tuple[int, chess.Move]:
+        if not ENABLE_ASPIRATION or not use_window or abs(previous_score) >= MATE_WINDOW:
+            return self._search_root(board, depth, previous_best, -INFINITY, INFINITY)
+
+        window = ASPIRATION_WINDOW
+        while True:
+            alpha = max(-INFINITY, previous_score - window)
+            beta = min(INFINITY, previous_score + window)
+            score, move = self._search_root(board, depth, previous_best, alpha, beta)
+            if alpha < score < beta:
+                return score, move
+            window *= 2
+            if window >= INFINITY:
+                return self._search_root(board, depth, previous_best, -INFINITY, INFINITY)
+
     def _move_budget_ms(self, board: chess.Board, time_left_ms: int) -> float:
         remaining = max(1.0, float(time_left_ms))
         reserve = min(5_000.0, max(150.0, remaining * 0.07))
@@ -293,12 +329,15 @@ class ChessEngine:
         return max(2.0, min(budget, remaining - margin))
 
     def _search_root(
-        self, board: chess.Board, depth: int, previous_best: chess.Move
+        self,
+        board: chess.Board,
+        depth: int,
+        previous_best: chess.Move,
+        alpha: int,
+        beta: int,
     ) -> tuple[int, chess.Move]:
         self._check_time(force=True)
         moves = self._ordered_moves(board, list(board.legal_moves), previous_best, 0)
-        alpha = -INFINITY
-        beta = INFINITY
         best_score = -INFINITY
         best_move = moves[0]
 
@@ -318,10 +357,21 @@ class ChessEngine:
                 best_score = score
                 best_move = move
             alpha = max(alpha, score)
+            if alpha >= beta:
+                break
 
         return best_score, best_move
 
-    def _search(self, board: chess.Board, depth: int, alpha: int, beta: int, ply: int) -> int:
+    def _search(
+        self,
+        board: chess.Board,
+        depth: int,
+        alpha: int,
+        beta: int,
+        ply: int,
+        *,
+        allow_null: bool = True,
+    ) -> int:
         self.nodes += 1
         self._check_time()
 
@@ -333,6 +383,32 @@ class ChessEngine:
             return 0
         if depth <= 0:
             return self._quiescence(board, alpha, beta, ply, 0)
+
+        selective_search = ENABLE_NULL_MOVE or ENABLE_LMR or ENABLE_FUTILITY
+        in_check = board.is_check() if selective_search else False
+        if (
+            ENABLE_NULL_MOVE
+            and allow_null
+            and depth >= 3
+            and not in_check
+            and abs(beta) < MATE_WINDOW
+            and self._has_non_pawn_material(board, board.turn)
+        ):
+            reduction = 2 + depth // 5
+            board.push(chess.Move.null())
+            try:
+                null_score = -self._search(
+                    board,
+                    max(0, depth - 1 - reduction),
+                    -beta,
+                    -beta + 1,
+                    ply + 1,
+                    allow_null=False,
+                )
+            finally:
+                board.pop()
+            if null_score >= beta:
+                return null_score
 
         key = self._key(board)
         original_alpha = alpha
@@ -357,15 +433,47 @@ class ChessEngine:
         moves = self._ordered_moves(board, moves, tt_move, ply)
         best_score = -INFINITY
         best_move: chess.Move | None = None
+        static_eval = (
+            evaluate(board) if ENABLE_FUTILITY and depth <= 2 and not in_check else None
+        )
 
         for index, move in enumerate(moves):
             quiet = not board.is_capture(move) and move.promotion is None
+            gives_check = (
+                board.gives_check(move) if ENABLE_LMR or ENABLE_FUTILITY else False
+            )
+            if (
+                ENABLE_FUTILITY
+                and index > 0
+                and depth == 1
+                and quiet
+                and not gives_check
+                and static_eval is not None
+                and static_eval + FUTILITY_MARGIN <= alpha
+            ):
+                continue
             board.push(move)
             try:
                 if index == 0:
                     score = -self._search(board, depth - 1, -beta, -alpha, ply + 1)
                 else:
-                    score = -self._search(board, depth - 1, -alpha - 1, -alpha, ply + 1)
+                    reduction = 0
+                    if (
+                        ENABLE_LMR
+                        and depth >= 3
+                        and index >= 4
+                        and quiet
+                        and not in_check
+                        and not gives_check
+                    ):
+                        reduction = 1 + int(depth >= 6 and index >= 10)
+                    score = -self._search(
+                        board,
+                        max(0, depth - 1 - reduction),
+                        -alpha - 1,
+                        -alpha,
+                        ply + 1,
+                    )
                     if alpha < score < beta:
                         score = -self._search(board, depth - 1, -beta, -alpha, ply + 1)
             finally:
@@ -466,6 +574,8 @@ class ChessEngine:
                     score += 700_000
                 key = (board.turn, move.from_square, move.to_square, move.promotion)
                 score += min(600_000, self.history.get(key, 0))
+            if ENABLE_CHECK_ORDERING and board.gives_check(move):
+                score += 100_000
             return score
 
         return sorted(moves, key=move_score, reverse=True)
@@ -475,6 +585,14 @@ class ChessEngine:
             return
         self.killers[ply][1] = self.killers[ply][0]
         self.killers[ply][0] = move
+
+    @staticmethod
+    def _has_non_pawn_material(board: chess.Board, color: chess.Color) -> bool:
+        return bool(
+            board.occupied_co[color]
+            & ~int(board.pieces(chess.PAWN, color))
+            & ~int(board.pieces(chess.KING, color))
+        )
 
     def _principal_variation(self, board: chess.Board, depth: int) -> tuple[chess.Move, ...]:
         line: list[chess.Move] = []
