@@ -58,6 +58,26 @@ This is elapsed search time, not a platform guarantee or playing-strength gain.
 No simultaneous main-agent arena was running during this benchmark; other
 system/subagent activity was not controlled. Compilation is excluded.
 
+## Timed replay of the round 16 decision
+
+Main-agent verification confirms the piece on f6 is a **pawn**, not a knight;
+the knight is on g4. V7 at fixed depth five/six prefers `gxf6`, scores -28/-49
+cp. Those are our own scores, not an independent evaluation of the move.
+
+Replaying the PGN history through the position before `20.h4`, with 87,083 ms
+remaining and both modules warmed on this Mac, gives:
+
+| Engine | Move | Completed depth | Nodes | Elapsed ms | Own score cp |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Exact v7 source | h2h4 | 7 | 2,295,478 | 3482.57 | -140 |
+| Lazy ordering | e2g3 | 8 | 4,404,721 | 3482.88 | -128 |
+
+This reproduces the played move with v7 and demonstrates a deeper completed
+iteration for the candidate, not proof that `Ng3` saves the game. Local hardware
+and other concurrent activity differ from the platform; clocks alone do not
+establish identical search depths there. A shallow preference for `gxf6` is not
+evidence that the deeper iterative search should necessarily choose it.
+
 An independent reviewer found no ordering-semantic difference but noted the
 extra score-array allocation as a timing risk to verify in actual games.
 
@@ -65,5 +85,46 @@ Archive: `candidate-lazy-order-day2-1.zip`, 53,184 bytes uncompressed.
 SHA256: `c3861b36f16e72db12425a4ef4d6c11f9f09a4b485681a1c8bddd5026265facf`.
 The first 12-game paired match against exact v7 uses validation openings 1–6,
 10000+100 ms, with partial diagnostic logs enabled symmetrically for both
-agents. Records: `artifacts/lazy-order-day2-screen-1`. Match in progress;
-not submitted. V7 remains active.
+agents. Records: `artifacts/lazy-order-day2-screen-1`. It finished **5 wins,
+4 draws, 3 losses (58.3%)**, no technical failures. This is modest positive
+evidence, not a precise strength estimate. A second 12-game comparison uses
+validation openings 7–12 with the same clock and unchanged ZIP; records:
+`artifacts/lazy-order-day2-validation-2`.
+
+A full-clock pair at 120000+500 ms uses validation opening 10 with colors
+swapped (`artifacts/lazy-order-day2-full-clock-1`). First game: draw by
+threefold repetition, no technical failure; second pending. The user explicitly
+approved this exact archive and rules acceptance conditional on at least 50%
+in the full-clock pair with no technical failures. Not submitted yet.
+
+## Separate pawn-advancement reward experiment
+
+`challengers/lmr_pawn_safety` copies v7, not the faster ordering candidate.
+It removes only the extra middlegame pawn-rank reward beyond the starting rank
+for pawns on a near-home wing king's file and its adjacent files, and only
+while the opponent has a queen. Endgame scores, the rest of evaluation and
+search are unchanged. This is not yesterday's additional king-shelter penalty.
+
+Eight tests pass, including a 256-position independent numeric reference,
+queen-absent and unrelated-wing parity, own-file inclusion, mirrored cases,
+and unchanged input arrays. Main review caught an initial omission of the
+king's own file, corrected before tests/games. The original move generator is
+byte-identical to v7.
+
+At fixed depth five in the rated round 17 positions, v7 versus the candidate:
+
+| Before recorded move | v7 choice | Candidate choice |
+| --- | --- | --- |
+| 10...f6 | f7f6 | g7f6 (bishop move) |
+| 11...g5 | h7h5 | h7h5 |
+| 12...h5 | h7h5 | c7c5 |
+
+These are behavioral observations, not independently certified better moves.
+The candidate also incurs another board scan in evaluation; any positional
+benefit must compensate for that cost in timed games.
+
+Archive `candidate-pawn-safety-day2-1.zip`, 53,461 bytes uncompressed,
+SHA256 `6636f6764daaf573a025acac1ec58f6f87aed7061991182d7806831e3d184de3`.
+Six games versus exact v7 at 2000+100 ms use legacy openings 1–3 with colors
+swapped (`artifacts/pawn-safety-day2-screen-1`); running, not promoted.
+No training, third-party engine, or neural weights are involved.
