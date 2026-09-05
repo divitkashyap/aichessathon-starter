@@ -1,0 +1,27 @@
+{
+  "notice": "Recorded continuation from our rated round18 win; not a proof of optimal moves or playing-build identity. Not Daily Five.",
+  "fen": "8/8/8/1p1b4/p2p1p2/P2P2k1/1P2K3/5B2 b - - 1 50",
+  "line": [
+    "d5g2",
+    "e2e1",
+    "g2f1",
+    "e1f1",
+    "f4f3",
+    "f1e1",
+    "f3f2",
+    "e1e2",
+    "g3g2",
+    "e2d2",
+    "f2f1q",
+    "d2c2",
+    "f1e1",
+    "b2b4",
+    "a4b3",
+    "c2b2",
+    "e1c3",
+    "b2b1",
+    "c3c2",
+    "b1a1",
+    "c2c1"
+  ]
+}

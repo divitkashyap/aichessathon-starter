@@ -34,12 +34,31 @@ VALIDATION_OPENING_LINES = (
     "b2b3 d7d5 c1b2 g8f6 e2e3 e7e6",
 )
 
+# Holdout lines were chosen for legal opening variety, not verified engine balance
+# and not by scores or engine-based selection.
+HOLDOUT_OPENING_LINES = (
+    "e2e4 e7e5 g1f3 b8c6 f1c4 g8f6 d2d3 f8c5",
+    "e2e4 c7c5 g1f3 e7e6 d2d4 c5d4 f3d4 d7d6",
+    "e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6",
+    "e2e4 c7c6 d2d4 d7d5 b1d2 g8f6 e4e5 f6d7",
+    "e2e4 d7d5 e4d5 d8d5 b1c3 d5d8",
+    "d2d4 d7d5 c2c4 c7c6 g1f3 g8f6 e2e3",
+    "d2d4 g8f6 c2c4 e7e6 g1f3 d7d5",
+    "c2c4 e7e5 g2g3 g8f6 f1g2 f8b4",
+    "g1f3 d7d5 c2c4 e7e6 b1c3 g8f6",
+    "g1f3 g8f6 g2g3 g7g6 f1g2 f8g7",
+    "b2b3 e7e5 c1b2 b8c6 e2e3 g8f6",
+    "b1c3 d7d5 e2e4 d5e4 c3e4",
+)
+
 
 def opening_lines(suite: str = DEFAULT_SUITE) -> tuple[str, ...]:
     if suite == DEFAULT_SUITE:
         return OPENING_LINES
     if suite == "validation":
         return VALIDATION_OPENING_LINES
+    if suite == "holdout":
+        return HOLDOUT_OPENING_LINES
     raise ValueError(f"unknown opening suite: {suite}")
 
 

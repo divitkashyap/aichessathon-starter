@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock
+from unittest.mock import patch
 
 from tools import review_pgn
 
@@ -15,6 +16,34 @@ class Result:
 
 
 class ReviewPgnTests(unittest.TestCase):
+    def test_selected_reviewer_is_recorded_not_playing_build(self) -> None:
+        directory = Path(tempfile.mkdtemp(prefix="review-selected-engine-"))
+        path = self.write_pgn(directory, '1. e4 *\n')
+        from challengers.lmr_lazy_order import lmr_search
+        with patch.object(lmr_search, 'search_fixed_depth', return_value=Result('e2e4', 0)), patch.object(review_pgn, '_forced_move_score', return_value=0):
+            report = review_pgn.review_pgn(path, 'white', engine_name='v8')
+        self.assertEqual(report['reviewer'], 'challengers.lmr_lazy_order.lmr_search')
+        self.assertEqual(report['reviewer_selection'], 'v8')
+        self.assertEqual(report['build'], 'unknown')
+        self.assertEqual(len(report['reviewer_source_sha256']), 64)
+        self.assertEqual(len(report['reviewer_core_sha256']), 64)
+
+    def test_forced_mate_score_counts_played_move(self) -> None:
+        from challengers.lmr_lazy_order import lmr_search
+        fen = '7k/5Q2/6K1/8/8/8/8/8 w - - 0 1'
+        self.assertEqual(review_pgn._forced_move_score(lmr_search, fen, 'f7h7', 2), lmr_search.MATE - 1)
+        with self.assertRaisesRegex(ValueError, 'illegal forced move'):
+            review_pgn._forced_move_score(lmr_search, fen, 'a1a2', 2)
+
+    def test_forced_check_retains_interior_extensions(self) -> None:
+        from challengers.lmr_lazy_order import lmr_search
+        fen = 'r5k1/pppb1r2/1b1p3B/3N1p2/q1P5/5P2/PP1Q2PP/4RR1K w - - 5 23'
+        self.assertEqual(review_pgn._forced_move_score(lmr_search, fen, 'd5f6', 4), lmr_search.MATE - 9)
+
+    def test_invalid_reviewer_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, 'unknown review engine'):
+            review_pgn.review_pgn(Path('unused.pgn'), 'white', engine_name='nonexistent')
+
     def write_pgn(self, directory: Path, text: str) -> Path:
         path = directory / "game.pgn"
         path.write_text(text, encoding="utf-8")

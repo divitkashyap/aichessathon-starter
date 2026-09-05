@@ -14,6 +14,7 @@ be searched. Identical warmed search work ran about 1.66x faster on this Mac.
 
 - Against frozen v7: 11 wins, 6 draws, 7 losses over 24 games at 10 seconds + 0.1 second/move.
 - Separate full competition-clock pair: 1 win, 1 draw, no technical failures.
+- Follow-up on new starting positions: 7W/3D/2L vs v6 and 6W/4D/2L vs v7; no runtime changes or new upload. [Win review and broader evidence](docs/ROUND18_LEARNINGS.md).
 - Platform initialization: 26.3 and 26.4 seconds, within the 90-second budget.
 - Active status verified at 09:57 London on 5 September; 8 of 10 uploads shown used.
 - [Release manifest](releases/v8.json), [experiment evidence](docs/DAY2_FIXES.md).
@@ -71,10 +72,16 @@ and [follow-up screens](docs/FOLLOWUP_SCREENS.md) for caveats and reproducibilit
 5. Promote only with supporting evidence; preserve the exact previous archive.
    Keep failures in the record instead of silently retuning the validation set.
 
-The arena now supports `--suite legacy` (the unchanged original 12 openings)
-and `--suite validation` (12 additional openings). Each match manifest records
+The arena now supports `--suite legacy` (the unchanged original 12 openings),
+`--suite validation` (12 additional openings), and `--suite holdout` (12 further
+legal positions, not independently certified equal). Each match manifest records
 its selected FENs and source/archive hashes. Once used to select a change, a
 validation suite is no longer an untouched final test for further tuning.
+
+The PGN reviewer accepts `--engine v8` to identify the reviewing source; that
+does not identify which build played the game. Played moves are reviewed as
+interior search nodes to retain check-extension semantics. Scores remain
+diagnostic estimates, not automatic blunder labels or independent truth.
 
 Training is a separate experiment: first measure errors on the existing Colab
 validation shards by position type, then choose targeted data/objective changes.

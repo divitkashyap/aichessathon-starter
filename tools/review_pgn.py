@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
+import math
 import json
 from collections.abc import Callable
 from pathlib import Path
@@ -11,11 +13,49 @@ from typing import Any
 
 import chess
 import chess.pgn
+import numpy as np
 
-from challengers.lmr_terminal import lmr_search as reviewer_engine
-from challengers.lmr_terminal.lmr_search import MATE, MAX_SEARCH_PLY, search_fixed_depth
+from challengers.lmr_terminal.lmr_search import MATE, MAX_SEARCH_PLY
 
 SearchFunction = Callable[[str, int], Any]
+REVIEW_ENGINES = {
+    "terminal": "challengers.lmr_terminal.lmr_search",
+    "v6": "challengers.lmr.lmr_search",
+    "v7": "challengers.lmr_checks_draws.lmr_search",
+    "v8": "challengers.lmr_lazy_order.lmr_search",
+}
+
+
+def _forced_move_score(engine: Any, fen: str, uci: str, depth: int) -> int:
+    """Evaluate a played root move with the engine's interior-node semantics.
+
+    A new child *root* search can omit check extensions that the real parent
+    search gives that child. Enter negamax at ply one instead. This still is
+    selective-search evidence, not an independent oracle.
+    """
+    if depth < 1:
+        raise ValueError("forced-move depth must be positive")
+    board, state = engine.position_from_fen(fen)
+    history, count = engine._history_array((), int(state[engine.HASH_KEY]))
+    matches = [int(move) for move in engine.generate_legal_moves(board, state)
+               if engine.move_to_uci(int(move)) == uci]
+    if not matches:
+        raise ValueError(f"illegal forced move: {uci}")
+    move = matches[0]
+    undo = np.empty(engine.UNDO_SIZE, dtype=np.int64)
+    engine.make_move(board, state, move, undo)
+    path = np.zeros(engine.MAX_SEARCH_PLY, dtype=np.int64)
+    path[0] = state[engine.HASH_KEY]
+    stats = np.zeros(2, dtype=np.int64)
+    try:
+        score = engine._negamax(
+            board, state, depth - 1, -engine.INFINITY, engine.INFINITY, 1,
+            stats, math.inf, history, count, path, 1,
+            *engine._new_tt(), *engine._new_move_ordering(),
+        )
+        return -int(score)
+    finally:
+        engine.unmake_move(board, state, move, undo)
 
 
 def _clock_seconds(node: chess.pgn.ChildNode, game_number: int, ply: int) -> float | None:
@@ -40,6 +80,7 @@ def _review_game(
     color: chess.Color,
     depth: int,
     search: SearchFunction,
+    forced_search: Callable[[str, str, int], int] | None = None,
 ) -> list[dict[str, object]]:
     board = game.board()
     records: list[dict[str, object]] = []
@@ -58,15 +99,19 @@ def _review_game(
                 )
             root_score = int(root_result.score)
             played = move.uci()
+            played_gives_check = board.gives_check(move)
             board.push(move)
             outcome = board.outcome(claim_draw=False)
             if outcome is not None:
                 child_score = _terminal_score(board)
+            elif forced_search is not None:
+                # The forced search already measures mate distance at ply one.
+                child_score = -forced_search(fen, played, depth)
             else:
                 child_result = search(board.fen(en_passant="fen"), depth - 1)
                 child_score = int(child_result.score)
             parent_view_child_score = -child_score
-            if outcome is None and abs(child_score) >= MATE - MAX_SEARCH_PLY:
+            if outcome is None and forced_search is None and abs(child_score) >= MATE - MAX_SEARCH_PLY:
                 # A fresh child search measures mate distance from its own
                 # root. Add the played move when expressing it at our root.
                 parent_view_child_score += 1 if child_score > 0 else -1
@@ -78,6 +123,8 @@ def _review_game(
                     "recommended_move": recommended,
                     "played_move": played,
                     "same_as_recommended": played == recommended,
+                    "played_gives_check": played_gives_check,
+                    "comparison_method": "interior_forced_move" if forced_search else "fresh_child_root",
                     "root_score": root_score,
                     "child_score": child_score,
                     "parent_view_child_score": parent_view_child_score,
@@ -95,8 +142,15 @@ def review_pgn(
     color_name: str,
     depth: int = 5,
     build: str | None = None,
-    search: SearchFunction = search_fixed_depth,
+    search: SearchFunction | None = None,
+    engine_name: str = "terminal",
 ) -> dict[str, object]:
+    if engine_name not in REVIEW_ENGINES:
+        raise ValueError(f"unknown review engine: {engine_name}")
+    selected_engine = None
+    if search is None:
+        selected_engine = importlib.import_module(REVIEW_ENGINES[engine_name])
+        search = selected_engine.search_fixed_depth
     if color_name not in {"white", "black"}:
         raise ValueError("color must be white or black")
     if depth < 2:
@@ -118,7 +172,11 @@ def review_pgn(
             games.append(
                 {
                     "game_number": game_number,
-                    "moves": _review_game(game, game_number, color, depth, search),
+                    "moves": _review_game(
+                        game, game_number, color, depth, search,
+                        (lambda fen, move, d: _forced_move_score(selected_engine, fen, move, d))
+                        if selected_engine else None,
+                    ),
                 }
             )
     if not games:
@@ -126,13 +184,19 @@ def review_pgn(
     return {
         "diagnostic_notice": (
             "Scores are our-engine diagnostics, not ground truth. Root/child "
-            "selective searches can differ even for the recommended move."
+            "selective searches can differ even for the recommended move. "
+            "The reviewer does not import prior game repetition history."
         ),
         "pgn_sha256": hashlib.sha256(pgn_path.read_bytes()).hexdigest(),
-        "reviewer": "lmr_terminal" if search is search_fixed_depth else "injected_test_search",
+        "review_tool_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "reviewer": selected_engine.__name__ if selected_engine else "custom_search",
+        "reviewer_selection": engine_name if selected_engine else None,
         "reviewer_source_sha256": hashlib.sha256(
-            Path(reviewer_engine.__file__).read_bytes()
-        ).hexdigest() if search is search_fixed_depth else None,
+            Path(selected_engine.__file__).read_bytes()
+        ).hexdigest() if selected_engine else None,
+        "reviewer_core_sha256": hashlib.sha256(
+            Path(selected_engine.__file__).with_name("lmr_core.py").read_bytes()
+        ).hexdigest() if selected_engine else None,
         "build": build if build is not None else "unknown",
         "color": color_name,
         "depth": depth,
@@ -155,11 +219,14 @@ def main() -> None:
     parser.add_argument("--depth", type=int, default=5)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--build")
+    parser.add_argument("--engine", choices=tuple(REVIEW_ENGINES), default="terminal",
+                        help="Frozen source used to review; does not identify the playing build")
     arguments = parser.parse_args()
     if arguments.output.exists():
         parser.error(f"refusing to overwrite existing output: {arguments.output}")
     try:
-        report = review_pgn(arguments.pgn, arguments.color, arguments.depth, arguments.build)
+        report = review_pgn(arguments.pgn, arguments.color, arguments.depth, arguments.build,
+                            engine_name=arguments.engine)
         write_new_json(report, arguments.output)
     except (FileExistsError, OSError, ValueError) as error:
         parser.error(str(error))

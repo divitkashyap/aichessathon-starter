@@ -46,7 +46,7 @@ def main() -> None:
     parser.add_argument("--champion", type=Path, required=True)
     parser.add_argument("--base-ms", type=int, default=2_000)
     parser.add_argument("--increment-ms", type=int, default=100)
-    parser.add_argument("--suite", choices=("legacy", "validation"), default=DEFAULT_SUITE)
+    parser.add_argument("--suite", choices=("legacy", "validation", "holdout"), default=DEFAULT_SUITE)
     parser.add_argument("--unbuffered-logs", action="store_true", help="Launch both local Python runners with -u for timely diagnostic logs")
     parser.add_argument("--openings", type=int, default=12)
     parser.add_argument("--opening-start", type=int, default=0)
