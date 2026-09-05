@@ -1,34 +1,36 @@
 # Hallucinated Gambits — Einsteinanium
 
-## Current competition agent: v7
+## Current competition agent: v8
 
-Platform-validated on 4 September 2026. The active source is
-`challengers/lmr_checks_draws/`, **not the older root `agent.py` or `make zip` target**.
+Platform-validated on 5 September 2026. The active source is
+`challengers/lmr_lazy_order/`, **not the older root `agent.py` or `make zip` target**.
 This is our own Numba search with classical evaluation and conservative
 late-move reductions, bounded check extensions, terminal-position fixes and
 dead-material recognition; it ships no neural weights or third-party engine.
 In plain terms, it follows forcing checks further and avoids assigning a
-winning score to clearly drawn material endings.
+winning score to clearly drawn material endings. V8 preserves v7's evaluation
+and search decisions at fixed depth, but avoids sorting moves that will never
+be searched. Identical warmed search work ran about 1.66x faster on this Mac.
 
-- Against frozen v6: 3 wins, 2 draws, 1 loss at 10 seconds + 0.1 second/move.
-- Separate full competition-clock pair: 2 wins, no technical failures.
-- Platform initialization: 25.8 and 25.7 seconds, within the 90-second budget.
-- Active status verified at 23:55 London on 4 September; 7 of 10 uploads used.
-- [Release manifest](releases/v7.json), [experiment evidence](docs/ROUND12_DIAGNOSIS.md).
+- Against frozen v7: 11 wins, 6 draws, 7 losses over 24 games at 10 seconds + 0.1 second/move.
+- Separate full competition-clock pair: 1 win, 1 draw, no technical failures.
+- Platform initialization: 26.3 and 26.4 seconds, within the 90-second budget.
+- Active status verified at 09:57 London on 5 September; 8 of 10 uploads shown used.
+- [Release manifest](releases/v8.json), [experiment evidence](docs/DAY2_FIXES.md).
 
 These are small local samples against one opponent, not a proven Elo gain.
-V6's exact archive and [release record](releases/v6.json) remain preserved;
-its earlier evidence is in the [LMR experiment](docs/LMR_EXPERIMENT.md).
+V7's exact archive and [release record](releases/v7.json) remain preserved;
+its earlier evidence is in the [check/draw experiment](docs/ROUND12_DIAGNOSIS.md).
 
 Rebuild the exact active archive without overwriting the original:
 
 ```sh
 .venv/bin/python -m tools.package_challenger \
-  --source challengers/lmr_checks_draws --out candidate-v7-rebuilt.zip \
+  --source challengers/lmr_lazy_order --out candidate-v8-rebuilt.zip \
   --files agent.py lmr_core.py lmr_search.py
 ```
 
-Expected SHA256: `2274f766f4151f3e7425d973fc26bc96c83637891e236052a466b3859bf6db92`.
+Expected SHA256: `c3861b36f16e72db12425a4ef4d6c11f9f09a4b485681a1c8bddd5026265facf`.
 Other `challengers/` directories are experiments, not automatically approved upgrades.
 See [NNUE diagnosis](docs/NNUE_DIAGNOSIS.md) before spending more training time.
 
@@ -45,6 +47,8 @@ simply beating the starter minimax bot. Scores below count draws as half a win.
 | Better move ordering | Finding promising moves first makes the remaining search cheaper. | v5 candidate scored 77.1% over 24 games against **v3**, not v4; the earlier opponent attribution was corrected. |
 | Conservative late-move reductions | Initially search late quiet moves less deeply, then verify promising ones. | v6 scored 9W/5D/4L in a separate 18-game validation against v5; full-clock pair was 1W/1D. |
 | Follow checks further; recognize dead material | A real rated loss exposed a forced mate our search missed. The combined candidate finds it at depth four; simple drawn endings now evaluate to zero. | v7 scored 3W/2D/1L directly against v6, then 2W at the full clock. Check-only failed its separate full-clock pair (0W/1D/1L); tactical success alone was not enough. |
+| Avoid unnecessary move sorting | Same fixed-depth moves, scores and node counts, with less repeated ordering work. More depth fits into the clock. | v8 matched 24 depth-four searches and 36 depth-five benchmark searches; about 1.66x faster locally. Two 12-game screens combined to 11W/6D/7L vs v7; full-clock pair 1W/1D. Rated strength gain not established yet. |
+| Remove pawn-advancement reward around our king, not promoted | A targeted positional change altered the observed pawn-push decisions, but changing behavior is not proof of better play. | Eight tests passed, including 256 independent numeric evaluations; game screen 2W/1D/3L vs v7. Not included in v8. |
 | King pawn-cover penalty, not promoted | A sensible positional rule can look promising against one reference and fail against the actual champion. | 9W/8D/7L against the terminal-fix reference, but 4W/3D/5L directly against v6 at a longer clock; full-clock pair split 1W/1L. |
 | Neural evaluator and guarded variants | Lower aggregate prediction error does not guarantee stronger play. Sparse endgames are a major weakness. | On a second 850-position sample, ordinary-position MAE was 130 cp classical vs 249 cp neural; a bounded blend reached 124 cp but lost its v6 game screen. No neural candidate promoted. |
 | Rejected search/evaluation ideas | Plausible improvements still need to earn promotion. | Persistent memory scored 39.6% over 24 games against v5. Pawn bonuses, guarded null search and neural root ordering also failed to earn promotion in small screens. |
@@ -92,7 +96,7 @@ rank is feedback, not confirmation of qualification. See the
 
 ## Upstream starter guide (historical)
 
-The original guide below describes the starter workflow, not the active v7 packaging command.
+The original guide below describes the starter workflow, not the active v8 packaging command.
 
 Fork this to build an agent for [AI Chessathon](https://aichessathon.com). It gives you a working
 submission, baselines to beat, and a local harness that speaks the same protocol and enforces the

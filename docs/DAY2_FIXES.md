@@ -89,13 +89,25 @@ agents. Records: `artifacts/lazy-order-day2-screen-1`. It finished **5 wins,
 4 draws, 3 losses (58.3%)**, no technical failures. This is modest positive
 evidence, not a precise strength estimate. A second 12-game comparison uses
 validation openings 7–12 with the same clock and unchanged ZIP; records:
-`artifacts/lazy-order-day2-validation-2`.
+`artifacts/lazy-order-day2-validation-2`. It finished **6 wins, 2 draws,
+4 losses (58.3%)**, no technical failures. The two disjoint opening ranges
+combine to **11 wins, 6 draws, 7 losses over 24 games (58.3%)** against v7.
+These remain local, opponent-specific samples, not Elo or leaderboard claims.
 
 A full-clock pair at 120000+500 ms uses validation opening 10 with colors
-swapped (`artifacts/lazy-order-day2-full-clock-1`). First game: draw by
-threefold repetition, no technical failure; second pending. The user explicitly
+swapped (`artifacts/lazy-order-day2-full-clock-1`). It finished **1 win,
+1 draw, 0 losses**, no technical failures. The user explicitly
 approved this exact archive and rules acceptance conditional on at least 50%
-in the full-clock pair with no technical failures. Not submitted yet.
+in the full-clock pair with no technical failures. That condition passed.
+The additional opening comparison also supported promotion. The exact approved
+ZIP was uploaded as **v8 at 09:55 London on 5 September** after all tests
+finished. Platform validation completed at **08:57:32 UTC**, with startup times
+of **26.3 and 26.4 seconds** within the 90-second budget. The dashboard showed
+v8 valid and active before its displayed 10:00 next round, and **8/10 uploads
+used**. Both smoke logs identify `einsteinanium-lmr-lazy-order-challenger`.
+The positional experiment below is not included in this archive.
+Release metadata: `releases/v8.json`. Final local regression rerun: 13 tests
+passed (lazy ordering, isolated pawn evaluator, and competition fixtures).
 
 ## Separate pawn-advancement reward experiment
 
@@ -126,5 +138,8 @@ benefit must compensate for that cost in timed games.
 Archive `candidate-pawn-safety-day2-1.zip`, 53,461 bytes uncompressed,
 SHA256 `6636f6764daaf573a025acac1ec58f6f87aed7061991182d7806831e3d184de3`.
 Six games versus exact v7 at 2000+100 ms use legacy openings 1–3 with colors
-swapped (`artifacts/pawn-safety-day2-screen-1`); running, not promoted.
+swapped (`artifacts/pawn-safety-day2-screen-1`); **2 wins, 1 draw, 3 losses
+(41.7%)**, no technical failures. Not promoted or combined with the speed
+candidate. This small screen does not establish that the positional idea can
+never work, but it did not earn a release.
 No training, third-party engine, or neural weights are involved.

@@ -80,7 +80,7 @@ class PawnSafetyTests(unittest.TestCase):
         ref_board, ref_state = reference.position_from_fen(fen)
         self.assertLess(candidate.evaluate(board, state), reference.evaluate(ref_board, ref_state))
 
-    def test_mirrored_black_adjustment_has_opposite_score(self) -> None:
+    def test_mirrored_adjustment_matches_side_to_move_perspective(self) -> None:
         white_fen = "3q2k1/8/8/8/7P/8/8/6K1 w - - 0 1"
         black_fen = "6k1/8/8/7p/8/8/8/3Q2K1 b - - 0 1"
         self.assertTrue(chess.Board(white_fen).is_valid())

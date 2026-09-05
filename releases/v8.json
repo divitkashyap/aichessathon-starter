@@ -1,0 +1,51 @@
+{
+  "platform_version": 8,
+  "platform_status": "valid_active",
+  "validated_at_utc": "2026-09-05T08:57:32Z",
+  "platform_init_seconds": [26.3, 26.4],
+  "submitted_at_london": "2026-09-05T09:55:00+01:00",
+  "submission_time_precision": "minute",
+  "source_commit": "ce22c64",
+  "source_directory": "challengers/lmr_lazy_order",
+  "members": ["agent.py", "lmr_core.py", "lmr_search.py"],
+  "archive": "candidate-lazy-order-day2-1.zip",
+  "sha256": "c3861b36f16e72db12425a4ef4d6c11f9f09a4b485681a1c8bddd5026265facf",
+  "uncompressed_bytes": 53184,
+  "model_weights": false,
+  "changes_from_v7": ["snapshot move-ordering scores once and lazily select moves with exact eager-reference tie behavior"],
+  "excluded_experiment": "lmr_pawn_safety",
+  "opponent_v7_sha256": "2274f766f4151f3e7425d973fc26bc96c83637891e236052a466b3859bf6db92",
+  "first_screen": {
+    "wins": 5, "draws": 4, "losses": 3, "technical_failures": 0,
+    "base_ms": 10000, "increment_ms": 100,
+    "suite": "validation", "opening_start": 0, "paired_openings": 6,
+    "artifacts": "artifacts/lazy-order-day2-screen-1"
+  },
+  "separate_openings": {
+    "wins": 6, "draws": 2, "losses": 4, "technical_failures": 0,
+    "base_ms": 10000, "increment_ms": 100,
+    "suite": "validation", "opening_start": 6, "paired_openings": 6,
+    "artifacts": "artifacts/lazy-order-day2-validation-2"
+  },
+  "full_clock_check": {
+    "wins": 1, "draws": 1, "losses": 0, "technical_failures": 0,
+    "base_ms": 120000, "increment_ms": 500,
+    "suite": "validation", "opening_start": 9, "paired_openings": 1,
+    "artifacts": "artifacts/lazy-order-day2-full-clock-1"
+  },
+  "correctness": {
+    "randomized_ordering_positions": 256,
+    "exact_depth_four_positions": 24,
+    "exact_depth_five_benchmark_searches": 36,
+    "timeout_restoration": true,
+    "round12_mate_preserved": true
+  },
+  "local_warmed_benchmark": {
+    "reference_total_ms": 3835.7298349874327,
+    "candidate_total_ms": 2305.237501015654,
+    "aggregate_speedup": 1.6639195888915854,
+    "notice": "Mac elapsed search time with exact moves/scores/nodes; not a controlled platform benchmark."
+  },
+  "approval": "User approved this exact ZIP and rules acceptance conditional on at least 50% in the full-clock pair with no technical failures. Condition passed; both 12-game screens also scored 58.3%.",
+  "evidence_limit": "Local results against one frozen opponent; no demonstrated leaderboard or Elo improvement yet."
+}
